@@ -1,0 +1,133 @@
+#!/usr/bin/perl
+
+# ---   *   ---   *   --- +
+# HL                      |
+# makes help messages     |
+
+# LIBRE SOFTWARE          |
+# Licensed under GNU GPL3 |
+# be a bro and inherit    |
+
+# CONTRIBUTORS            |
+# lyeb,                   |
+
+# ---   *   ---   *   --- +
+
+# deps
+  use strict;
+  use warnings;
+
+  # for testing we use an abspath
+  # later on cash would be on @INC
+  use lib glob '~/AR/hl/';
+  use cash;
+
+# ---   *   ---   *   ---
+
+# det N chars to allocate per field
+sub gen_fields {
+
+  # get console size in chars
+  my ($y,$x)=cash::tty_sz;
+
+  # generate template
+  my $n_field;  
+  my $d_field;{
+
+    # set sizes according to screen  
+    my $d_sz=int($x/1.5)-12;
+    my $n_sz=$x-$d_sz-12;
+
+    # string paste
+    $n_field='@'.( '<'x$n_sz );
+    $d_field='@'.( '<'x$d_sz );
+
+  };return ($n_field,$d_field);
+
+};
+
+# ---   *   ---   *   ---
+
+# opts=(name,desc...) pair list
+# cut provided opts so they format wrap
+sub parse_opts {
+
+  my @opts=@{ $_[0] };
+  my ($n_field,$d_field)=gen_fields;
+
+  my $n_space=length $n_field;
+  my $d_space=length $d_field;
+
+  my @lines=();my ($x,$y)=(0,0);
+  my ($sz_x,$sz_y)=(0,0);
+
+# ---   *   ---   *   ---
+
+  # iter through pairs
+  while(@opts) {
+    my $n=shift @opts;
+    my $d=shift @opts;
+
+    $lines[$x][$y][0]='';
+    $lines[$x][$y][1]='';$y=0;
+
+    # cut name string into lines
+    my $sub=1;while($sub) {
+      ($sub,$n)=cash::wrap_word($n,$n_space);
+      if(!$sub) {last;}
+      
+      $lines[$x][$y][0]=$sub;
+      $y++;$sz_y++;
+
+    };$lines[$x][$y][0]=$n;
+
+# ---   *   ---   *   ---
+
+    # now cut description
+    $y=0;$sub=1;while($sub) {
+      ($sub,$d)=cash::wrap_word($d,$d_space);
+      if(!$sub) {last;}
+      
+      $lines[$x][$y][1]=$sub;$y++;
+      $sz_y+=$y>=$sz_y;
+
+    };$lines[$x][$y][1]=$d;
+    $x++;$sz_x++;
+
+  };
+
+# ---   *   ---   *   ---
+
+  for($x=0;$x<$sz_x;$x++) {
+    for($y=0;$y<=$sz_y;$y++) {
+
+      if(!$lines[$x][$y][0] && !$lines[$x][$y][1]) {
+        next;
+
+      };
+    
+      if(!$lines[$x][$y][0]) {$lines[$x][$y][0]='';};
+      if(!$lines[$x][$y][1]) {$lines[$x][$y][1]='';};
+
+      print sprintf "%-24s",$lines[$x][$y][0];
+      print sprintf "%-24s\n",$lines[$x][$y][1];
+
+    };
+
+  };
+
+};
+
+# ---   *   ---   *   ---
+
+# then pad and cat
+#$s=(' 'x4).$name_field.(' 'x6).$desc_field;
+
+my @ar=(
+
+'-o1,--opt1','some option that does a bunch of things',
+'-o2,--needlessly-long','another option that has a very long name and description, usually itd wrap',
+
+);parse_opts \@ar;
+
+# ---   *   ---   *   ---
