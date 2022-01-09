@@ -13,10 +13,11 @@
 #***************************
 
 # deps
+package cash;
+
   use strict;
   use warnings;
-
-package cash;
+  use Time::Piece;
 
 # ---   *   ---   *   ---
 # settings
@@ -105,6 +106,7 @@ my %PESO=(
 
   # formatting
   "pad"       ,      \&pex_pad        ,
+  "nl"        ,      \&pex_newline    ,
   "center_beg",      \&pex_center_beg ,
   "center_end",      \&pex_center_end ,
 
@@ -134,6 +136,16 @@ sub pex_pad {
   return " "x$n;
 
 };
+
+# insert n newlines
+sub pex_newline {
+  my $n=shift;
+  return "\n"x$n;
+  #return sprintf "\e[%iB\r",$n;
+
+};
+
+# ---   *   ---   *   ---
 
 # body=text in any
 # centers body according to screen width
@@ -366,8 +378,7 @@ sub pe_strip {
 sub pe_rdin {
 
   # get screen dimentions
-  ($CACHE{-SC_SZX},$CACHE{-SC_SZY})=
-    Term::ReadKey::GetTerminalSize();
+  tty_sz;
 
   # replace with file later/add -f option
   my $block=shift;
@@ -578,6 +589,50 @@ sub wrapl {
   if(DEBUG) {print $debug;};
   
   return $CACHE{-SPACE};
+
+};
+
+# ---   *   ---   *   ---
+# arg handling utils
+
+sub make_arg_keys {
+
+  my %opts=();my $i=0;
+  
+  while(@_) {
+  
+    my @names=split ',',(shift @_);    
+    my $desc=shift @_;
+
+    while(@names) {
+      my $name=shift @names;
+      $opts{$name}=[$desc,$i];
+
+    };$i++;
+    
+  };
+
+  return %opts;
+
+};
+
+sub argchk {
+
+  my @args=@{ $_[0] };
+  my %opts=%{ $_[1] };
+
+  my @result=();
+
+  while(@args) {
+    my $arg=shift @args;
+    foreach my $opt(keys %opts) {
+      if($arg eq $opt) {
+        push @result,${ opts{$opt} }[1];
+
+      };
+    };
+    
+  };return \@result;
 
 };
 
