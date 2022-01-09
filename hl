@@ -96,38 +96,99 @@ sub parse_opts {
 
   };
 
-# ---   *   ---   *   ---
-
-  for($x=0;$x<$sz_x;$x++) {
-    for($y=0;$y<=$sz_y;$y++) {
-
-      if(!$lines[$x][$y][0] && !$lines[$x][$y][1]) {
-        next;
-
-      };
-    
-      if(!$lines[$x][$y][0]) {$lines[$x][$y][0]='';};
-      if(!$lines[$x][$y][1]) {$lines[$x][$y][1]='';};
-
-      print sprintf "%-24s",$lines[$x][$y][0];
-      print sprintf "%-24s\n",$lines[$x][$y][1];
-
-    };
-
-  };
+  return (\@lines,$sz_x,$sz_y,(' 'x4).$n_field.(' 'x6).$d_field);
 
 };
 
 # ---   *   ---   *   ---
 
-# then pad and cat
-#$s=(' 'x4).$name_field.(' 'x6).$desc_field;
+# single arg=parsed opts array
+# outs file with format print
+sub make_format {
+
+  my ($lines_ref,$sz_x,$sz_y,$line_format)=@_;
+  my @lines=@{ $lines_ref };
+
+  # oh, here it comes
+  open FH,'>','./test';
+  print FH '#!/usr/bin/perl'."\n";
+  print FH 'my ($name,$desc);'."\n";
+
+  # first print the generated format itself
+  print FH 'format HELPME='."\n";
+  print FH $line_format."\n";
+  print FH '$name, $desc'."\n";
+  print FH '.'."\n";
+
+# ---   *   ---   *   ---
+
+  # now check it  
+  print FH <<'EOF'
+
+# single arg=parsed opts array
+# outs file with format print
+
+my $line_format=$ARGV[0];shift;
+my @lines=@ARGV;
+
+select(STDOUT);$~="HELPME";
+
+# iter lines
+while(@lines) {
+  $name=shift @lines;
+  $desc=shift @lines;
+
+  write;
+
+};
+
+EOF
+
+  # God I'm so meta
+  ;close FH;`chmod +x ./test`;
+
+};
+
+# ---   *   ---   *   ---
+
+# runs the generated code
+sub write_format {
+  my ($lines_ref,$sz_x,$sz_y,$line_format)=@_;
+  my @lines=@{ $lines_ref };
+  my @lines_flat=();
+
+  # iter lines
+  for(my $x=0;$x<$sz_x;$x++) {
+    for(my $y=0;$y<=$sz_y;$y++) {
+
+      # blank name & desc
+      if(!$lines[$x][$y][0] && !$lines[$x][$y][1]) {
+        next;
+
+      };
+
+      # only one is blank, still need it for padding
+      if   (!$lines[$x][$y][0]) {$lines[$x][$y][0]='';}
+      elsif(!$lines[$x][$y][1]) {$lines[$x][$y][1]='';};
+
+      push @lines_flat,'"'.$lines[$x][$y][0].'"'; 
+      push @lines_flat,'"'.$lines[$x][$y][1].'"';
+
+    };
+  };  
+  print `./test "$line_format" @lines_flat`;
+
+};
+
+# ---   *   ---   *   ---
 
 my @ar=(
 
 '-o1,--opt1','some option that does a bunch of things',
 '-o2,--needlessly-long','another option that has a very long name and description, usually itd wrap',
 
-);parse_opts \@ar;
+);@ar=parse_opts \@ar;
+make_format @ar;
+write_format @ar;
 
 # ---   *   ---   *   ---
