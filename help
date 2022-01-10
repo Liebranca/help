@@ -19,7 +19,7 @@
 
   # for testing we use an abspath
   # later on cash would be on @INC
-  use lib glob '~/AR/hl/';
+  use lib glob '~/AR/help/';
   use cash;
 
   # ^likewise
@@ -33,18 +33,22 @@
 
   };
 
-sub helpme {
+sub help {
 
-  print "Usage: hl <'opt0'> <'d0'> ... <'optN'> <'dN'>\n";
-  print "hl formats (option,description) pair-list to tty\n\n";
+  print "Usage: help <'opt0'> <'d0'> ... <'optN'> <'dN'>\n";
+  print "help formats (option,description) pair-list to tty size\n\n";
+
+  my @OPTS=@_;
+  unshift @OPTS,'inception';
+  system './help',@OPTS;
 
   write_format();
 
   exit;
 
-};sub view_version {
+};sub version {
   print avt::version(
-    'hl',VERSION,
+    'help',VERSION,
     'help message and commandline dev utils',
     'IBN-3DILA',
     
@@ -231,11 +235,11 @@ my @OPTS=(
 
 # ---   *   ---   *   ---
 
+my $gen_only=0;
+
 # no args provided
 if(!@ARGV) {
-  unshift @OPTS,'inception';
-  system './hl',@OPTS;
-  helpme;
+  help @OPTS;
 
 } elsif($ARGV[0] ne 'inception') {
 
@@ -246,13 +250,14 @@ if(!@ARGV) {
 
     my $opt_i=shift @passed;
     shift @ARGV;
-    
-    if   ($opt_i==1) {helpme      ;}
-    elsif($opt_i==2) {view_version;};
+
+    if   ($opt_i==0) {$gen_only=1 ;}
+    elsif($opt_i==1) {help @OPTS  ;}
+    elsif($opt_i==2) {version     ;};
 
   };
 
-};
+} else {shift;$gen_only=1;};
 
 # ---   *   ---   *   ---
 
@@ -260,7 +265,8 @@ if(!@ARGV) {
 
 my @ar=parse_opts();
 make_format @ar;
-#write_format;
+
+if(!$gen_only) {write_format;};
 
 # ---   *   ---   *   ---
 1; # ret
