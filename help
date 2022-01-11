@@ -38,7 +38,6 @@
 # global storage
 
   my %CACHE=(
-    -GEN_ONLY   =>      0,
     -USE_COLOR  =>      1,
     -OPTS       =>      0,
 
@@ -47,7 +46,6 @@
 # ---   *   ---   *   ---
 
 # flippers
-sub sw_gen {$CACHE{-GEN_ONLY }=1;};
 sub sw_col {$CACHE{-USE_COLOR}=0;};
 
 # print helpme
@@ -55,16 +53,22 @@ sub help {
 
   my @header=(
     "help <flags> <usage> <description> <'opt0'> <'d0'> ... <'optN'> <'dN'>",
-    "formats (usage,description), then an (option,description) pair-list".
-    " to fit within screen width as returned by stty size",
+    "Formats (usage,description), then an (option,description) pair-list".
+    " to fit within screen width as returned by stty size."
+
+    .'$:parg;>'.
+    
+    "Redirecting help into a file let's you print the message through cat",
 
   );
 
   my @OPTS=@{ $CACHE{-OPTS} };
+  
   if(!$CACHE{-USE_COLOR}) {
     unshift @header,'--ugly';
 
   };
+  
   system './help',(@header,@OPTS);
   
   exit;
@@ -95,8 +99,8 @@ sub gen_fields {
   my $d_field;{
 
     # set sizes according to screen  
-    my $d_sz=int($x/1.5)-10;
-    my $n_sz=$x-$d_sz-8;
+    my $d_sz=int($x/1.5)-8;
+    my $n_sz=$x-$d_sz-12;
 
     # string paste
     $n_field='%-'.($n_sz).'s';
@@ -121,7 +125,6 @@ sub parse_opts {
   my @header;{
 
     my $u="USAGE: ".( shift @opts );
-    my $d=shift @opts;
     
     my $sub=1;while($sub) {
       ($sub,$u)=cash::wrap_word($u,$h_space);
@@ -130,12 +133,24 @@ sub parse_opts {
       push @header,$sub;
     };push @header,$u;push @header,'';
 
-    $sub=1;while($sub) {
-      ($sub,$d)=cash::wrap_word($d,$h_space);
-      if(!$sub) {last;}
+# ---   *   ---   *   ---
+
+    # description can be many paragraphs...
+    my @d=split '\$:parg;>',shift @opts;
     
-      push @header,$sub;
-    };push @header,$d;
+    while(@d) {
+      my $d=shift @d;
+      
+      $sub=1;while($sub) {
+        ($sub,$d)=cash::wrap_word($d,$h_space);
+        if(!$sub) {last;}
+      
+        push @header,$sub;
+      };push @header,$d;
+      
+      if(@d) {push @header,' ';}
+      
+    };
 
   };
 
@@ -168,15 +183,16 @@ sub parse_opts {
 # ---   *   ---   *   ---
 
     # now cut description
+    my $i=0;
     $y=0;$sub=1;while($sub) {
-      ($sub,$d)=cash::wrap_word($d,$d_space);
+      $i++;($sub,$d)=cash::wrap_word($d,$d_space);
       if(!$sub) {last;}
-      
+
       $lines[$x][$y][1]=$sub;$y++;
       $sz_y+=$y>=$sz_y;
 
     };$lines[$x][$y][1]=$d;$y++;
-    $lines[$x][$y][1]=' ';
+    if($i>1) { $lines[$x][$y][1]=' '; }
     
     $x++;$sz_x++;$sz_y=($y>$sz_y) ? $y : $sz_y;
 
@@ -319,18 +335,14 @@ sub make_format {
 # arg handler
 
 # list+hash for checking passed options
-my @OPTS=(
-    '-g,--generate','Generates the format script without running it',
-    
+my @OPTS=(    
     '-h,--help'    ,'Have help call itself to generate this very message',
-                    
     '-v,--version' ,'Print version info and exit',
-
-    '-u,--ugly'    ,'Do not generate colorizing escapes'
+    '-u,--ugly'    ,'Do not generate colorizing escapes',
 
 # make hash{opt}=function
 );my %OPTS;{
-  my @op_calls=(\&sw_gen,\&help,\&version,\&sw_col);
+  my @op_calls=(\&help,\&version,\&sw_col);
   %OPTS=%{ cash::mcalltab(\@OPTS,\@op_calls) };
 
   $CACHE{-OPTS}=\@OPTS;
@@ -355,14 +367,10 @@ if(!@ARGV) {
 if(@ARGV && !(@ARGV%2)) {
   my @ar=parse_opts();
   my @helpme=make_format @ar;
-
-  if(!$CACHE{-GEN_ONLY}) {
-    my $format=shift @helpme;
-    my @vars=@{ shift @helpme };
-    
-    print sprintf "$format",@vars;
-    
-  };
+  my $format=shift @helpme;
+  my @vars=@{ shift @helpme };
+  
+  print sprintf "$format",@vars;
   
 } else {help;};
 

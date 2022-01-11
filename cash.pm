@@ -429,8 +429,8 @@ sub wrap_word {
   my $rem=substr $line,length $sub,$len;
 
   # sub endswith ws or rem startswith ws  
-  $sub=~ s/(\s+$)//;my $sub_w=$1;
-  $rem=~ s/(^\s+)//;my $rem_w=$1;
+  my $sub_w=($sub=~ m/\s+$/);
+  my $rem_w=($rem=~ m/^\s+/);
 
   # if that doesn't happen find earlier place to cut
   if(!$sub_w && !$rem_w) {
