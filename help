@@ -17,13 +17,9 @@
   use strict;
   use warnings;
 
-  # for testing we use an abspath
-  # later on cash would be on @INC
-  use lib glob '~/AR/help/';
+  use lib glob $ENV{'ARPATH'}.'/lib/';
+  
   use cash;
-
-  # ^likewise
-  use lib glob '~/AR/avtomat/';
   use avt;
 
 # ---   *   ---   *   ---
@@ -53,6 +49,7 @@ sub help {
 
   my @header=(
     "help <flags> <usage> <description> <'opt0'> <'d0'> ... <'optN'> <'dN'>",
+    
     "Formats (usage,description), then an (option,description) pair-list".
     " to fit within screen width as returned by stty size."
 
@@ -77,7 +74,6 @@ sub help {
 };sub version {
   print avt::version(
     'help',VERSION,
-    'help message and commandline dev utils',
     'IBN-3DILA',
     
   );exit;
