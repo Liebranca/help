@@ -595,44 +595,30 @@ sub wrapl {
 # ---   *   ---   *   ---
 # arg handling utils
 
-sub make_arg_keys {
+# makes a call table from (-n,--n), (\&call)
+sub mcalltab {
 
-  my %opts=();my $i=0;
-  
-  while(@_) {
-  
-    my @names=split ',',(shift @_);    
-    my $desc=shift @_;
+  my @opts=@{ $_[0] };
+  my @calls=@{ $_[1] };
 
+  my %table;
+  
+  while(@opts) {
+
+    # take names and discard description  
+    my @names=split ',',(shift @opts);
+    shift @opts;
+
+    # assign call to all related names
+    my $call=shift @calls;
     while(@names) {
-      my $name=shift @names;
-      $opts{$name}=[$desc,$i];
+      $table{shift @names}=$call;
 
-    };$i++;
+    };
     
   };
 
-  return %opts;
-
-};
-
-sub argchk {
-
-  my @args=@{ $_[0] };
-  my %opts=%{ $_[1] };
-
-  my @result=();
-
-  while(@args) {
-    my $arg=shift @args;
-    foreach my $opt(keys %opts) {
-      if($arg eq $opt) {
-        push @result,${ opts{$opt} }[1];
-
-      };
-    };
-    
-  };return \@result;
+  return \%table;
 
 };
 

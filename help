@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # ---   *   ---   *   --- +
-# HL                      |
+# HELP                    |
 # makes help messages     |
 
 # LIBRE SOFTWARE          |
@@ -27,18 +27,35 @@
   use avt;
 
 # ---   *   ---   *   ---
+# info
 
   use constant {
     VERSION => "0.1b" ,
 
   };
 
+# ---   *   ---   *   ---
+# global storage
+
+  my %CACHE=(
+    -GEN_ONLY   =>      0,
+    -OPTS       =>      0,
+
+  );
+
+# ---   *   ---   *   ---
+
+# just a flip
+sub sw_gen {$CACHE{-GEN_ONLY}=1;};
+
+# print helpme
 sub help {
 
   print "Usage: help <'opt0'> <'d0'> ... <'optN'> <'dN'>\n";
   print "help formats (option,description) pair-list to tty size\n\n";
 
-  my @OPTS=@_;
+  my @OPTS=@{ $CACHE{-OPTS} };
+  
   unshift @OPTS,'inception';
   system './help',@OPTS;
 
@@ -46,6 +63,7 @@ sub help {
 
   exit;
 
+# print version info
 };sub version {
   print avt::version(
     'help',VERSION,
@@ -230,43 +248,40 @@ my @OPTS=(
     '-g,--generate','generates the format script without running it',
     '-h,--help'    ,'show this message',
     '-v,--version' ,'print version info and exit',
-    
-);my %OPTS=cash::make_arg_keys(@OPTS);
+
+# make hash{opt}=function
+);my %OPTS;{
+  my @op_calls=(\&sw_gen,\&help,\&version);
+  %OPTS=%{ cash::mcalltab(\@OPTS,\@op_calls) };
+
+  $CACHE{-OPTS}=\@OPTS;
+
+};
 
 # ---   *   ---   *   ---
-
-my $gen_only=0;
 
 # no args provided
 if(!@ARGV) {
-  help @OPTS;
+  help;
 
+# normal call
 } elsif($ARGV[0] ne 'inception') {
 
-  my @passed=@{ cash::argchk(\@ARGV,\%OPTS) };
-
-  # else check for options
-  while(@passed) {
-
-    my $opt_i=shift @passed;
-    shift @ARGV;
-
-    if   ($opt_i==0) {$gen_only=1 ;}
-    elsif($opt_i==1) {help @OPTS  ;}
-    elsif($opt_i==2) {version     ;};
+  while(grep m/${ ARGV[0] }/,keys %OPTS) {
+    my $opt=shift;
+    $OPTS{$opt}->();
 
   };
 
-} else {shift;$gen_only=1;};
+# self-call trick
+} else {shift;sw_gen;};
 
 # ---   *   ---   *   ---
-
-#!($#ARGV%2)
 
 my @ar=parse_opts();
 make_format @ar;
 
-if(!$gen_only) {write_format;};
+if(!$CACHE{-GEN_ONLY}) {write_format;};
 
 # ---   *   ---   *   ---
 1; # ret
