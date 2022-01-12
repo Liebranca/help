@@ -18,14 +18,14 @@
   use warnings;
 
   use lib glob $ENV{'ARPATH'}.'/lib/';
-  
+
   use cash;
   use avt;
 
 # ---   *   ---   *   ---
 # info
 
-  use constant {  
+  use constant {
     VERSION   =>  "0.2b"
 
   };
@@ -49,25 +49,24 @@ sub help {
 
   my @header=(
     "help <flags> <usage> <description> <'opt0'> <'d0'> ... <'optN'> <'dN'>",
-    
+
     "Formats (usage,description), then an (option,description) pair-list".
     " to fit within screen width as returned by stty size."
 
     .'$:parg;>'.
-    
+
     "Redirecting help into a file let's you print the message through cat",
 
   );
 
   my @OPTS=@{ $CACHE{-OPTS} };
-  
+
   if(!$CACHE{-USE_COLOR}) {
     unshift @header,'--ugly';
 
   };
-  
-  system './help',(@header,@OPTS);
-  
+
+  print avt::ex './help',[@header,@OPTS],'';
   exit;
 
 # print version info
@@ -75,7 +74,7 @@ sub help {
   print avt::version(
     'help',VERSION,
     'IBN-3DILA',
-    
+
   );exit;
 
 };
@@ -88,18 +87,18 @@ sub gen_fields {
   # get console size in chars
   my ($y,$x)=cash::tty_sz;
 
-  my $header='%-'.($x-4).'s'."\n";
+  my $header="\e[2K\%-".($x-4).'s'."\n";
 
   # generate template
-  my $n_field;  
+  my $n_field;
   my $d_field;{
 
-    # set sizes according to screen  
+    # set sizes according to screen
     my $d_sz=int($x/1.5)-8;
     my $n_sz=$x-$d_sz-12;
 
     # string paste
-    $n_field='%-'.($n_sz).'s';
+    $n_field="\e[2K".'%-'.($n_sz).'s';
     $d_field='%-'.($d_sz).'s'."\n";
 
   };return ($header,$n_field,$d_field);
@@ -121,31 +120,35 @@ sub parse_opts {
   my @header;{
 
     my $u="USAGE: ".( shift @opts );
-    
+    my $cnt=0;
+
     my $sub=1;while($sub) {
       ($sub,$u)=cash::wrap_word($u,$h_space);
-      if(!$sub) {last;}
-    
+      $cnt++;if(!$sub) {last;}
+
+      if($cnt>1) {$sub=(' 'x8).$sub;};
+
       push @header,$sub;
-    };push @header,$u;push @header,'';
+    };if($cnt>1) {$u=(' 'x8).$u;};
+    push @header,$u;push @header,'';
 
 # ---   *   ---   *   ---
 
     # description can be many paragraphs...
     my @d=split '\$:parg;>',shift @opts;
-    
+
     while(@d) {
       my $d=shift @d;
-      
+
       $sub=1;while($sub) {
         ($sub,$d)=cash::wrap_word($d,$h_space);
         if(!$sub) {last;}
-      
+
         push @header,$sub;
       };push @header,$d;
-      
+
       if(@d) {push @header,' ';}
-      
+
     };
 
   };
@@ -170,7 +173,7 @@ sub parse_opts {
     my $sub=1;while($sub) {
       ($sub,$n)=cash::wrap_word($n,$n_space);
       if(!$sub) {last;}
-      
+
       $lines[$x][$y][0]=$sub;
       $y++;
 
@@ -189,7 +192,7 @@ sub parse_opts {
 
     };$lines[$x][$y][1]=$d;$y++;
     if($i>1) { $lines[$x][$y][1]=' '; }
-    
+
     $x++;$sz_x++;$sz_y=($y>$sz_y) ? $y : $sz_y;
 
   };
@@ -197,7 +200,7 @@ sub parse_opts {
   return (
     \@header,
     \@lines,
-    
+
     $sz_x,$sz_y,
 
     $header,
@@ -221,7 +224,7 @@ sub make_format {
     $line_format
 
   )=@_;
-  
+
   my @header=@{ $header_ref };
   my @lines=@{ $lines_ref };
 
@@ -254,12 +257,12 @@ sub make_format {
   my $result_f;
   my @result_v;
 
-  # compose the header string  
+  # compose the header string
   { my $color=($CACHE{-USE_COLOR})
       ? ( cash::pex_col '8A')
       : ''
       ;
-      
+
     my $hed_f="\n".$color;
 
     # get first line...
@@ -271,23 +274,23 @@ sub make_format {
 
       my $s=shift @header;
 
-      # indent the description      
+      # indent the description
       if($s eq '') {
         $header_format='  '.$header_format;
         $color=($CACHE{-USE_COLOR})
           ? ( cash::pex_col '07' )
           : ''
           ;
-        
+
         $desc_part=1;
         $s="\e[2K";
 
       };
 
       # cat format and values
-      $hed_f.=$color.$header_format;        
+      $hed_f.=$color.$header_format;
       push @result_v,$s;
-      
+
     };$result_f=$hed_f;
 
   };
@@ -302,25 +305,24 @@ sub make_format {
 
     $header_format=cash::ltrim($header_format);
     my $opt_f="\n".$color.$header_format;
-    
-    push @result_v,'OPTIONS';
-    push @result_v,"\e[2K";
 
+    push @result_v,"OPTIONS";
+    push @result_v,'';
     $color=($CACHE{-USE_COLOR})
       ? cash::pex_col '07'
       : ''
       ;
 
     $opt_f.=$color.$header_format;
-    
+
     while(@lines_flat) {
       my $s1=shift @lines_flat;
       my $s2=shift @lines_flat;
-      
+
       $opt_f.=$line_format;
       push @result_v,$s1;
       push @result_v,$s2;
-      
+
     };$result_f.=$opt_f;
 
   };return ($result_f,\@result_v);
@@ -331,7 +333,7 @@ sub make_format {
 # arg handler
 
 # list+hash for checking passed options
-my @OPTS=(    
+my @OPTS=(
     '-h,--help'    ,'Have help call itself to generate this very message',
     '-v,--version' ,'Print version info and exit',
     '-u,--ugly'    ,'Do not generate colorizing escapes',
@@ -353,9 +355,9 @@ if(!@ARGV) {
 
 # normal call
 };while(@ARGV && grep m/${ ARGV[0] }/,keys %OPTS) {
-  my $opt=shift;  
+  my $opt=shift;
   $OPTS{$opt}->();
-  
+
 };
 
 # ---   *   ---   *   ---
@@ -365,9 +367,9 @@ if(@ARGV && !(@ARGV%2)) {
   my @helpme=make_format @ar;
   my $format=shift @helpme;
   my @vars=@{ shift @helpme };
-  
+
   print sprintf "$format",@vars;
-  
+
 } else {help;};
 
 # ---   *   ---   *   ---

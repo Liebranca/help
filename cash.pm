@@ -32,7 +32,7 @@ package cash;
 # dirty stuff, don't touch
 
   use constant {
-  
+
     # escape delimiters
     PE_BEG   =>  '$:'         ,
     PE_END   =>  ';>'         ,
@@ -49,17 +49,17 @@ package cash;
     0x7F0000,   # red
     0x208020,   # green
     0xD09820,   # yellow
-    
+
     0x004080,   # blue
     0x40A040,   # magenta
     0x006060,   # cyan
     0x8080C0,   # white
-    
+
     0x000080,   # black
     0xA01020,   # red
     0x40AE40,   # green
     0xB0B000,   # yellow
-    
+
     0x0040D0,   # blue
     0x8000A0,   # magenta
     0x00A0A0,   # cyan
@@ -77,23 +77,47 @@ package cash;
 # ---   *   ---   *   ---
 # internal global storage
 
-  my %CACHE = (  
+  my %CACHE = (
     -FILE     => ""         ,
     -LINE     => ""         ,
 
     -SC_SZX   =>          68,
     -SC_SZY   =>          30,
-    
+
     -SPACE    =>          68,
-    
+
     -PE_PALID => "def"      ,
     -PE_COLID => 0x04       ,
 
   );
 
+# ---   *   ---   *   ---
+
 # finds screen size and saves it to global cache
 # one of my favorite one liners
 sub tty_sz {return (($CACHE{-SC_SZY},$CACHE{-SC_SZX})=split ' ',`stty size`);};
+
+# palette to .Xresources
+sub paltox {
+
+  # get current palette
+  my @pal;{
+
+    my $palid=$CACHE{-PE_PALID};
+    @pal=@{ $PALETTES{$palid} };
+
+  };my $result='';my $N=0;
+
+
+  # translate int to Xresources format
+  while(@pal) {
+    my $col=sprintf "%06X",shift @pal;
+    $result.='*color'.$N.': #'.$col."\n";
+    $N++;
+
+  };return $result;
+
+};
 
 # ---   *   ---   *   ---
 # peso function table
@@ -153,7 +177,7 @@ sub pex_center_beg {
 
   my @body=split "\n",shift;
   my $result="";
-  
+
   while(@body) {
     my $line=shift @body;
     if((index $line,PE_BEG)>-1) {
@@ -161,7 +185,7 @@ sub pex_center_beg {
       next;
 
     };
-    
+
     my $space=($CACHE{-SC_SZX}-length $line)/2;$space--;
     $space=sprintf "\e[%iG",$space;
     $result=$result.$space.$line."\e[1B";
@@ -199,7 +223,7 @@ sub pex_col {
   my $bg_bold=($bg>7) ? 5 : 25;
 
   return sprintf "\e[$fg_bold;$bg_bold;%i;%im",30+($fg&0x7),40+($bg&0x7);
-  
+
 };
 
 # palid=name
@@ -214,7 +238,7 @@ sub pex_pal_beg {
       0,0,0,0,
       0,0,0,0,
       0,0,0,0,
-      
+
     ];
 
   };my $sublk=shift;
@@ -230,17 +254,17 @@ sub pex_pal_beg {
 sub pex_pal_def {
 
   my @ar=split ' ',$_[0];
-  
+
   my $palid=$CACHE{-PE_PALID};
   my @pal=@{ $PALETTES{$palid} };
 
   while(@ar) {
-  
+
     my $n=shift @ar;
     my $col=hex(shift @ar);
 
     $pal[$n]=$col;
-    
+
   };@{ $PALETTES{$palid} }=@pal;  
   return PE_NIHIL;
 
@@ -261,10 +285,10 @@ sub  trim {my $s=shift;$s=~s/^\s|\s+$//;return $s;};
 # get (r,g,b) from rrggbbhex
 sub rrggbb_decode {
   my $lit=shift;
-  
+
   my $b=($lit & 0x0000FF)>> 0;
   my $g=($lit & 0x00FF00)>> 8;
-  my $r=($lit & 0xFF0000)>>16; 
+  my $r=($lit & 0xFF0000)>>16;
 
   return ($r,$g,$b);
 
@@ -290,7 +314,7 @@ sub pe_scpx {
   if($argc<0) {return;};
 
   my $f=shift;
-  
+
   my $s=PE_BEG."$f";
   while($argc>0) {
     $s=$s." ".shift;
@@ -320,7 +344,7 @@ sub pe_exec {
     my @ar=();
 
   # fetch args if any
-  if(!(index $pe_com,PE_END)==0) {  
+  if(!(index $pe_com,PE_END)==0) {
     $pe_com=~s/([\w|\d|\,]+);>//;
     @ar=split ',',$1;
     for(my $x=0;$x<$#ar;$x++) {
@@ -387,10 +411,10 @@ sub pe_rdin {
 
   # read block and execute
   while($block && ($ni=index $block,PE_BEG)>=0) {
-  
+
     $block=pe_strip (
       substr $block,$ni,length $block
-      
+
     );
 
     my $sub= substr $block,0,index($block,PE_BEG);
@@ -415,7 +439,7 @@ sub wrap_word {
 
   my $line=shift;
   my $space=shift;
-  
+
   my $len=length $line;
 
   # early exit
@@ -428,13 +452,13 @@ sub wrap_word {
   my $sub=substr $line,0,$space;
   my $rem=substr $line,length $sub,$len;
 
-  # sub endswith ws or rem startswith ws  
+  # sub endswith ws or rem startswith ws
   my $sub_w=($sub=~ m/\s+$/);
   my $rem_w=($rem=~ m/^\s+/);
 
   # if that doesn't happen find earlier place to cut
   if(!$sub_w && !$rem_w) {
-  
+
     $sub=~ s/(.*)\s+//;$sub=$1;
 
     # failure to earlier cut? then just cut
@@ -442,7 +466,7 @@ sub wrap_word {
     $rem=substr $line,length $sub,$len;
 
   };return (rtrim($sub),ltrim($rem));
-  
+
 
 };
 
@@ -457,11 +481,11 @@ sub ch_parens_beg {
 
   my $sub=substr $CACHE{-LINE},0,$i+length $c;
   $CACHE{-LINE}=despace(
-  
+
     ltrim substr(
     $CACHE{-LINE},length $sub,
     length $CACHE{-LINE}
-    
+
     ),$c
 
   );print "$sub\n".pe_scpx "pad",PAD;
@@ -473,11 +497,11 @@ sub ch_parens_mid {
 
   my $i=shift;
   my $c=shift;
-  
+
   my $sub=substr(
     $CACHE{-LINE},0,
     $i-length($c)+1
-    
+
   );$CACHE{-LINE}=despace substr(
     $CACHE{-LINE},length $sub,
     length $CACHE{-LINE}
@@ -496,7 +520,7 @@ sub ch_parens_end {
   $CACHE{-LINE}=despace substr(
     $CACHE{-LINE},$i,
     length $CACHE{-LINE}
-    
+
   ),$c;print "$sub\n\n";
 
 };
@@ -533,11 +557,11 @@ my @WRAP_RULES=(
   "}"   , \&ch_parens_end,
   ");"  , \&ch_parens_end,
   ")"   , \&ch_parens_end,
-  
+
   "->"  , \&ch_parens_mid,
   "&&"  , \&ch_parens_mid,
   "||"  , \&ch_parens_mid,
-  
+
   "&"   , \&ch_parens_mid,
   "|"   , \&ch_parens_mid,
   "^"   , \&ch_parens_mid,
@@ -564,16 +588,16 @@ sub wrapl {
   $CACHE{-SPACE}-=length $CACHE{-LINE};
 
   my $debug="\n";
-  
+
   if($CACHE{-SPACE} < 2) {
     for(my $x=0;$x<($#WRAP_RULES)*2;$x+=2) {
       my $i=0;my $i_=0;
       my $c=$WRAP_RULES[$x];
       if(!$c) {next;};
-      
+
       while(($i_=index substr(
         $CACHE{-LINE},$i,$CACHE{-SC_SZX}), $c)>0
-        
+
       ) { $i=$i_; if(DEBUG) {$debug=$debug."#$i '$c'\n";};
 
       };if($i>0) {
@@ -587,7 +611,7 @@ sub wrapl {
 
   print "$CACHE{-LINE}\n";
   if(DEBUG) {print $debug;};
-  
+
   return $CACHE{-SPACE};
 
 };
@@ -602,10 +626,10 @@ sub mcalltab {
   my @calls=@{ $_[1] };
 
   my %table;
-  
+
   while(@opts) {
 
-    # take names and discard description  
+    # take names and discard description
     my @names=split ',',(shift @opts);
     shift @opts;
 
@@ -615,7 +639,7 @@ sub mcalltab {
       $table{shift @names}=$call;
 
     };
-    
+
   };
 
   return \%table;
