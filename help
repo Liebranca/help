@@ -333,15 +333,27 @@ sub make_format {
 # arg handler
 
 # list+hash for checking passed options
-my @OPTS=(
-    '-h,--help'    ,'Have help call itself to generate this very message',
-    '-v,--version' ,'Print version info and exit',
-    '-u,--ugly'    ,'Do not generate colorizing escapes',
 
-# make hash{opt}=function
-);my %OPTS;{
-  my @op_calls=(\&help,\&version,\&sw_col);
-  %OPTS=%{ cash::mcalltab(\@OPTS,\@op_calls) };
+my %OPTS;
+my @OPTS;{
+
+  my ($oplref,$ophref)=cash::moptab(
+
+    '-h,--help',
+    'Have help call itself to generate this '.
+    'very message',
+    \&help,
+
+    '-v,--version',
+    'Print version info and exit',
+    \&version,
+
+    '-u,--ugly',
+    'Do not generate colorizing escapes',
+    \&sw_col
+
+  );%OPTS=%{ $ophref };
+    @OPTS=@{ $oplref };
 
   $CACHE{-OPTS}=\@OPTS;
 

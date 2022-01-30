@@ -50,9 +50,9 @@ package cash;
     0x208020,   # green
     0xD09820,   # yellow
 
-    0x004080,   # blue
-    0x40A040,   # magenta
-    0x006060,   # cyan
+    0x0060B0,   # blue
+    0x400040,   # magenta
+    0x008080,   # cyan
     0x8080C0,   # white
 
     0x000080,   # black
@@ -60,7 +60,7 @@ package cash;
     0x40AE40,   # green
     0xB0B000,   # yellow
 
-    0x0040D0,   # blue
+    0x0040B0,   # blue
     0x8000A0,   # magenta
     0x00A0A0,   # cyan
     0xB0A060,   # white
@@ -643,6 +643,27 @@ sub mcalltab {
   };
 
   return \%table;
+
+};
+
+# build optable
+sub moptab {
+
+  my @opts=();
+  my @calls=();
+
+  while(@_) {
+
+    my $names=shift;
+    my $desc=shift;
+    push @opts,($names,$desc);
+
+    my $call=shift;
+    push @calls,$call;
+
+  };my %opts=%{ mcalltab(\@opts,\@calls) };
+
+  return (\@opts,\%opts);
 
 };
 
