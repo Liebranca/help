@@ -89,6 +89,8 @@ package cash;
     -PE_PALID => "def"      ,
     -PE_COLID => 0x04       ,
 
+    -CALLTAB  => undef      ,
+
   );
 
 # ---   *   ---   *   ---
@@ -646,6 +648,8 @@ sub mcalltab {
 
 };
 
+# ---   *   ---   *   ---
+
 # build optable
 sub moptab {
 
@@ -661,9 +665,38 @@ sub moptab {
     my $call=shift;
     push @calls,$call;
 
-  };my %opts=%{ mcalltab(\@opts,\@calls) };
+  };$CACHE{-CALLTAB}=mcalltab(\@opts,\@calls);
 
-  return (\@opts,\%opts);
+  return \@opts;
+
+};
+
+# ---   *   ---   *   ---
+
+# goes through argv
+sub runtab {
+
+  my $args=shift;
+  my %tab=%{ $CACHE{-CALLTAB} };
+
+  # no args provided
+  if(!$args && $tab{'--help'}) {
+    $tab{'--help'}->();
+
+  };
+
+  # normal call
+  while(@$args
+
+  && grep m/@${ args[0] }/,
+    keys %tab
+
+  ) {
+
+    my $opt=shift @$args;
+    $tab{$opt}->();
+
+  };
 
 };
 
