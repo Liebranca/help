@@ -638,7 +638,13 @@ sub mcalltab {
     # assign call to all related names
     my $call=shift @calls;
     while(@names) {
-      $table{shift @names}=$call;
+
+      # clear <tip> tags;
+      # i.e. -f <path> clears <path> from string
+      my $name=shift @names;
+      $name=~ s/\s*\<[\w|\d]*\>//;
+
+      $table{$name}=$call;
 
     };
 
@@ -680,7 +686,7 @@ sub runtab {
   my %tab=%{ $CACHE{-CALLTAB} };
 
   # no args provided
-  if(!$args && $tab{'--help'}) {
+  if(!@$args && $tab{'--help'}) {
     $tab{'--help'}->();
 
   };

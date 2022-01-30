@@ -26,7 +26,8 @@
 # info
 
   use constant {
-    VERSION   =>  "0.2b"
+    VERSION   =>  '0.3b',
+    AUTHOR    =>  'IBN-3DILA',
 
   };
 
@@ -72,8 +73,7 @@ sub help {
 # print version info
 };sub version {
   print avt::version(
-    'help',VERSION,
-    'IBN-3DILA',
+    'help',VERSION,AUTHOR,
 
   );exit;
 
