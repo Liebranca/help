@@ -114,7 +114,7 @@ sub parse_opts {
   my @opts=@ARGV;
   my ($header,$n_field,$d_field)=gen_fields;
 
-  $header=~ m/%-([\d]+)s/;my $h_space=$1;
+  $header=~ m/\%-([\d]+)s/;my $h_space=$1;
 
   # cut the header
   my @header;{
@@ -155,8 +155,8 @@ sub parse_opts {
 
 # ---   *   ---   *   ---
 
-  $n_field=~ m/%-([\d]+)s/;my $n_space=$1;
-  $d_field=~ m/%-([\d]+)s/;my $d_space=$1;
+  $n_field=~ m/\%-([\d]+)s/;my $n_space=$1;
+  $d_field=~ m/\%-([\d]+)s/;my $d_space=$1;
 
   my @lines=();my ($x,$y)=(0,0);
   my ($sz_x,$sz_y)=(0,0);
@@ -175,6 +175,7 @@ sub parse_opts {
       if(!$sub) {last;}
 
       $lines[$x][$y][0]=$sub;
+
       $y++;
 
     };$lines[$x][$y][0]=$n;

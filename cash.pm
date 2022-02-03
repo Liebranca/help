@@ -461,7 +461,7 @@ sub wrap_word {
   # if that doesn't happen find earlier place to cut
   if(!$sub_w && !$rem_w) {
 
-    $sub=~ s/(.*)\s+//;$sub=$1;
+    $sub=~ s/(.*[\s+|\.|\,])//;$sub=$1;
 
     # failure to earlier cut? then just cut
     if(!$sub) {$sub=substr $line,0,$space;}
