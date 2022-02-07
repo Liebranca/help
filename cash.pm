@@ -87,7 +87,6 @@ package cash;
     -SPACE    =>          68,
 
     -PE_PALID => "def"      ,
-    -PE_COLID => 0x04       ,
 
     -CALLTAB  => undef      ,
 
@@ -216,6 +215,7 @@ sub pex_pal {
 # id=00..FF;==((bg<<4)|fg)
 # set color to use
 sub pex_col {
+
   my $colid=hex shift;
 
   my $fg=$colid&0x0F;
@@ -225,8 +225,26 @@ sub pex_col {
   my $bg_bold=($bg>7) ? 5 : 25;
 
   return sprintf "\e[$fg_bold;$bg_bold;%i;%im",30+($fg&0x7),40+($bg&0x7);
+};
+
+# ---   *   ---   *   ---
+
+# wrap text in color
+# in:00..FF,text
+sub C {
+  return pex_col(shift).( shift ).pex_col(07)
 
 };
+
+# get length of text discounting escapes
+# in:text
+sub L {
+  my $s=shift;$s=~ s/\e[\[|\]][\w|\d|\;]*\w//sg;
+  return length $s;
+
+};
+
+# ---   *   ---   *   ---
 
 # palid=name
 # start defining palette colors
