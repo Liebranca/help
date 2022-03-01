@@ -216,15 +216,41 @@ sub pex_pal {
 # set color to use
 sub pex_col {
 
-  my $colid=hex shift;
+  my $s=shift;
+  my ($bg,$fg,$rev)=split '',$s;
 
-  my $fg=$colid&0x0F;
-  my $bg=($colid&0xF0)>>4;
+  $fg=($fg ne '_') ? (hex $fg)&0x0F : undef;
+  $bg=($bg ne '_') ? (hex $bg)&0x0F : undef;
 
-  my $fg_bold=($fg>7) ? 1 : 22;
-  my $bg_bold=($bg>7) ? 5 : 25;
+# ---   *   ---   *   ---
 
-  return sprintf "\e[$fg_bold;$bg_bold;%i;%im",30+($fg&0x7),40+($bg&0x7);
+  if(!$fg && !$bg) {
+
+    $s=($rev) ? ( (7,27)[$rev eq 'R'] ) : '';
+    $s=(!$s) ? 0 : $s;
+
+    return "\e[".$s."m";
+
+  };
+
+# ---   *   ---   *   ---
+
+  $s='';
+
+  $s.=($fg) ? ( (1,22)[$fg<7] ).';' : '';
+  $s.=($bg) ? ( (5,25)[$bg<7] ).';' : '';
+  $s.=($rev) ? ( (7,27)[$rev eq 'R'] ).';' : '';
+
+  $s.=($fg) ? ( 30+($fg&0x7) ) : '';
+
+  $s.=($bg)
+    ? ( (';','')[!$fg] ).
+      ( [49,40+($bg&0x7)] )[$bg!=0]
+
+    : ''
+    ;
+
+  return "\e[$s".'m';
 };
 
 # ---   *   ---   *   ---
@@ -232,15 +258,26 @@ sub pex_col {
 # wrap text in color
 # in:00..FF,text
 sub C {
-  return pex_col(shift).( shift ).pex_col(07)
+  return pex_col(shift).( shift ).pex_col('__')
 
 };
 
 # get length of text discounting escapes
 # in:text
+
+sub uscpx {
+
+  my $s=shift;
+  $s=~ s/\x1B\[[;\d\?]*\w//sg;
+
+  return $s;
+
+};
+
 sub L {
-  my $s=shift;$s=~ s/\e[\[|\]][\w|\d|\;]*\w//sg;
-  return length $s;
+
+  my $s=shift;
+  return length uscpx $s;
 
 };
 
