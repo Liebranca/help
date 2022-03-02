@@ -68,13 +68,13 @@ package board;
   my %CHARS=(
 
     -DONE => [
-      cash::C('_F','-[').
+      cash::C('_F','  [').
       cash::C('_9','~').
-      cash::C('_F',']'),
+      cash::C('_F',']',1),
 
-      cash::C('_F','-[').
+      cash::C('_F','  [').
       cash::C('_A','x').
-      cash::C('_F',']'),
+      cash::C('_F',']',1),
 
     ],
 
@@ -96,8 +96,10 @@ sub new_card {
 
   $CACHE{-CARD}={
 
-    'id'    => shift,
+    'id' => shift,
     'tasks' => [],
+    'sel_task' => 0,
+    'progress' => 0.0,
 
   };
 
@@ -122,15 +124,46 @@ sub add_task {
     'prio'  => 0,
     'done'  => 0,
 
-  };
+  };calc_progress();
 
 };
 
 # in:idex
-# marks task as done
+# toggle task done/not done
 sub do_task {
+
   my $idex=shift;
+
   $CACHE{-CARD}->{'tasks'}[$idex]{'done'}^=1;
+  calc_progress();
+
+};
+
+sub calc_progress {
+
+  my ($done,$total)=(0,0);
+  for my $t(@{$CACHE{-CARD}->{'tasks'}}) {
+    $total++;$done+=$t->{'done'};
+
+  };my $val=($done/$total);
+  my $bar="\x{01E3}"x(int($val*16));
+
+  my $col1=cash::C('_4','');
+  my $col2=cash::C('_F','');
+  my $col3=cash::C('_3','');
+
+  my $fm=('%.3f','%.2f','%.1f')[
+
+    ($val>=0.1)+($val>=1.0)
+
+  ];
+
+  $CACHE{-CARD}->{'progress'}=sprintf(
+
+    "\{$col1%-16ls$col2\}".
+    " $col3$fm$col2%%",$bar,($val*100)
+
+  );
 
 };
 
@@ -139,6 +172,17 @@ sub do_task {
 sub draw {
 
   my $s="";my $last_l=0;
+
+  $CACHE{-CARD}->{'sel_task'}=(
+
+    $CACHE{-PTR_Y}%(@{
+      $CACHE{-CARD}->{'tasks'}
+
+    })
+
+  );
+
+# ---   *   ---   *   ---
 
   # get screen dimentions and card name
   my ($sc_y,$sc_x)=cash::tty_sz();
@@ -154,7 +198,8 @@ sub draw {
       cash::pex_col('_2').
       $title.
 
-      $CHARS{-HED}->[2]
+      $CHARS{-HED}->[2].
+      ' '.$CACHE{-CARD}->{'progress'}
 
     );
 
@@ -162,7 +207,7 @@ sub draw {
     my $pad=length($header)-cash::L($header);
 
     # format and colorize
-    $s.=cash::C('8_',
+    $s.=cash::C('5_',
 
       sprintf("\%-".($sc_x+$pad)."s",$header),1
 
@@ -172,21 +217,31 @@ sub draw {
 
 # ---   *   ---   *   ---
 
-  my $len=@{ $CACHE{-CARD}->{'tasks'} };
   my $i=0;for my $ref(@{ $CACHE{-CARD}->{'tasks'} }) {
     my %h=%{ $ref };
 
-    my $selected=$i==($CACHE{-PTR_Y}%$len);
+    my $selected=$i==$CACHE{-CARD}->{'sel_task'};
     $i++;
 
     # fetch task data
     my $done=@{ $CHARS{-DONE} }[$h{'done'}];
 
     my $todo=$h{'todo'};
-    my $t=$done.cash::C('_7',' ');
 
-    my $pad=cash::L($done)+1;
-    my $space=$sc_x-$pad-3;
+    my $selch=' ';if($selected) {
+        $selch.=''.
+          cash::C('_F',"\x{0195} ",1).
+          cash::C('_C','')
+
+    };my $alt_selch="\e[2K ";if($selected) {
+        $alt_selch.=''.
+          cash::C('_F',"\x{0199} ",1).
+          cash::C('_C','')
+
+    };my $t="\e[2K".$done.$selch;
+
+    my $pad=cash::L($done);
+    my $space=$sc_x-$pad-8;
 
 # ---   *   ---   *   ---
 
@@ -197,50 +252,86 @@ sub draw {
         $todo,$space
 
       );if($sub) {
-        $cnt++;$t.="\e[2K$sub\r\n".(' 'x$pad);
+
+        my $spad=length($sub)-cash::L($sub);
+        $sub=sprintf("\%-".$spad."s",$sub);
+
+        $t.=("$alt_selch$sub\r\n","$sub\r\n")[!$cnt].
+          (' 'x$pad);
+
+        $cnt++;
 
       };
 
 # ---   *   ---   *   ---
 
     # join strings
-    };$t=($cnt | $last_l)
-      ? "\r\n$t$todo"
-      : "$t$todo"
+    };if($cnt | $last_l) {
 
-      ;
+      $pad=length($todo)-cash::L($todo);
+      $todo=sprintf("\e[2K$alt_selch\%-".$space."s",$todo);
 
-    $t="\e[2K".$t;
+      $t="\r\n".$t.$todo;
 
-    $pad=length($t)-cash::L($t);
-    $s.=($selected)
+    } else {
 
-      ? cash::C('5_',
-          sprintf(
-            "\%-".($sc_x+$pad)."s",
-            $t
+      $t=$t.$todo;
 
-          ),1
-        )
+      $pad=length($t)-cash::L($t);
+      $t=sprintf("\%-".$space."s",$t);
 
-      : $t
-      ;
+    };
 
-    $s.="\r\n";
-    $last_l=$cnt!=0
+    $s.=cash::C('__',$t,1)."\r\n";
+    $last_l=$cnt!=0;
 
-  };
-
-  return $s;
+  };return $s;
 
 };
 
 # ---   *   ---   *   ---
 
+sub quit {
+  print "\e[0m\e[1J\e[1;1H\e[?25h";
+  exit;
+
+};
+
 sub run {
 
   # initialize console
   lycon::keynt(genks::pl_keymap(\%K,\@K));
+
+  # set key callbacks
+  my $k_up=lycon->ffi()->closure(
+
+    sub {$CACHE{-PTR_Y}--;}
+
+  );lycon::keycall($K{-AUP},0,$k_up);
+
+  my $k_dwn=lycon->ffi()->closure(
+
+    sub {$CACHE{-PTR_Y}++;}
+
+  );lycon::keycall($K{-ADWN},0,$k_dwn);
+
+  my $k_esc=lycon->ffi()->closure(
+
+    \&quit
+
+  );lycon::keycall($K{-AESC},2,$k_esc);
+
+  my $k_ret=lycon->ffi()->closure(
+
+    sub {
+
+      do_task($CACHE{-CARD}->{'sel_task'});
+
+    }
+
+  );lycon::keycall($K{-ERET},2,$k_ret);
+
+# ---   *   ---   *   ---
 
   my $clk_i=8;
   my $clk_v=''.
@@ -249,7 +340,8 @@ sub run {
 
   ;lycon::clknt(0x6000,$clk_v,$clk_i);
 
-  my @cl=('0','1','2','3');
+# ---   *   ---   *   ---  
+
   print "\e[?25l\e[1J\e[1;1H".( draw() );
 
   # main loop
@@ -265,20 +357,9 @@ sub run {
     };lycon::tick($busy);
     print sprintf("\e[%i;1H%lc",$sz_y,lycon::clkdr());
 
-    lycon::keyrd();
+    lycon::keyrd();lycon::keychk();
 
-    if(lycon::keyrel($K{-ESC})) {last;};
-lycon::keychk();
-
-    if(lycon::keyrel($K{-AUP})) {
-      $CACHE{-PTR_Y}--;
-
-    };if(lycon::keytap($K{-ADWN})) {
-      $CACHE{-PTR_Y}++;
-
-    };
-
-  };print "\e[0m\e[1J\e[1;1H\e[?25h";
+  };quit();
 };
 
 # ---   *   ---   *   ---
