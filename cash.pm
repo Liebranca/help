@@ -217,7 +217,7 @@ sub pex_pal {
 sub pex_col {
 
   my $s=shift;
-  my ($bg,$fg,$rev)=split '',$s;
+  my ($bg,$fg)=split '',$s;
 
   $fg=($fg ne '_') ? (hex $fg)&0x0F : undef;
   $bg=($bg ne '_') ? (hex $bg)&0x0F : undef;
@@ -226,29 +226,23 @@ sub pex_col {
 
   if(!$fg && !$bg) {
 
-    $s=($rev) ? ( (7,27)[$rev eq 'R'] ) : '';
-    $s=(!$s) ? 0 : $s;
-
-    return "\e[".$s."m";
+    return "\e[0m";
 
   };
 
 # ---   *   ---   *   ---
 
-  $s='';
+  $s='';if(defined $fg) {
+    $s.=( (1,22)[$fg<=7] ).';';
+    $s.=( 30+($fg&0x7) );
 
-  $s.=($fg) ? ( (1,22)[$fg<7] ).';' : '';
-  $s.=($bg) ? ( (5,25)[$bg<7] ).';' : '';
-  $s.=($rev) ? ( (7,27)[$rev eq 'R'] ).';' : '';
+  };if(defined $bg) {
+    $s.=(';','')[!(defined $fg)].
+      ( (5,25)[$bg<=7] ).';';
 
-  $s.=($fg) ? ( 30+($fg&0x7) ) : '';
+    $s.=40+($bg&0x7);
 
-  $s.=($bg)
-    ? ( (';','')[!$fg] ).
-      ( [49,40+($bg&0x7)] )[$bg!=0]
-
-    : ''
-    ;
+  };
 
   return "\e[$s".'m';
 };
@@ -258,7 +252,20 @@ sub pex_col {
 # wrap text in color
 # in:00..FF,text
 sub C {
-  return pex_col(shift).( shift ).pex_col('__')
+  
+  my $col=shift;
+  my $text=shift;
+  my $reset=shift;
+  $reset=(defined $reset) ? $reset : 0;
+
+  return(
+
+    pex_col($col).$text.((
+      ('',pex_col('__'))
+
+    )[$reset])
+
+  );
 
 };
 

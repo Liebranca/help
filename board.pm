@@ -45,7 +45,7 @@ package board;
     -PTR_X => 0,
     -PTR_Y => 0,
 
-  );my %K=(
+  );my %K=my @K=(
 
     -ESC=>['escape',''],
 
@@ -68,19 +68,21 @@ package board;
   my %CHARS=(
 
     -DONE => [
-      cash::C('0F','-[').
-      cash::C('09','~').
-      cash::C('0F',']'),
+      cash::C('_F','-[').
+      cash::C('_9','~').
+      cash::C('_F',']'),
 
-      cash::C('0F','-[').
-      cash::C('0A','x').
-      cash::C('0F',']'),
+      cash::C('_F','-[').
+      cash::C('_A','x').
+      cash::C('_F',']'),
 
     ],
 
     -HED => [
-      ''.chr(0x01D6).' < ',
-      ' >'
+      chr(0x01D6),
+
+      cash::C('_3',' < '),
+      cash::C('_3',' > ')
 
     ],
 
@@ -143,26 +145,26 @@ sub draw {
   my $title=$CACHE{-CARD}->{'id'};
 
   # draw header
-  {  my $col='00r';
+  { my $header=(
 
-     my $header=(
-
-      cash::pex_col($col).
-
+      cash::pex_col('_4').
       $CHARS{-HED}->[0].
+      $CHARS{-HED}->[1].
+
+      cash::pex_col('_2').
       $title.
 
-      $CHARS{-HED}->[1]
+      $CHARS{-HED}->[2]
 
     );
 
     # calc escapes length
-    my $pad=$sc_x-cash::L($header);
+    my $pad=length($header)-cash::L($header);
 
     # format and colorize
-    $s.=$header.cash::C(
+    $s.=cash::C('8_',
 
-      $col,sprintf("\%-".$pad."s",'')
+      sprintf("\%-".($sc_x+$pad)."s",$header),1
 
     )."\r\n\r\n";
 
@@ -170,14 +172,18 @@ sub draw {
 
 # ---   *   ---   *   ---
 
-  for my $ref(@{ $CACHE{-CARD}->{'tasks'} }) {
+  my $len=@{ $CACHE{-CARD}->{'tasks'} };
+  my $i=0;for my $ref(@{ $CACHE{-CARD}->{'tasks'} }) {
     my %h=%{ $ref };
+
+    my $selected=$i==($CACHE{-PTR_Y}%$len);
+    $i++;
 
     # fetch task data
     my $done=@{ $CHARS{-DONE} }[$h{'done'}];
 
     my $todo=$h{'todo'};
-    my $t=$done.' ';
+    my $t=$done.cash::C('_7',' ');
 
     my $pad=cash::L($done)+1;
     my $space=$sc_x-$pad-3;
@@ -191,7 +197,7 @@ sub draw {
         $todo,$space
 
       );if($sub) {
-        $cnt++;$t.="$sub\r\n".(' 'x$pad);
+        $cnt++;$t.="\e[2K$sub\r\n".(' 'x$pad);
 
       };
 
@@ -199,10 +205,29 @@ sub draw {
 
     # join strings
     };$t=($cnt | $last_l)
-      ? "\r\n$t$todo\r\n"
-      : "$t$todo\r\n"
+      ? "\r\n$t$todo"
+      : "$t$todo"
 
-      ;$s.=$t;$last_l=$cnt!=0;
+      ;
+
+    $t="\e[2K".$t;
+
+    $pad=length($t)-cash::L($t);
+    $s.=($selected)
+
+      ? cash::C('5_',
+          sprintf(
+            "\%-".($sc_x+$pad)."s",
+            $t
+
+          ),1
+        )
+
+      : $t
+      ;
+
+    $s.="\r\n";
+    $last_l=$cnt!=0
 
   };
 
@@ -215,36 +240,41 @@ sub draw {
 sub run {
 
   # initialize console
-  lycon::keynt(genks::pl_keymap(\%K));
-  lycon::clknt(0x6000,"\x01A9",1);
+  lycon::keynt(genks::pl_keymap(\%K,\@K));
+
+  my $clk_i=8;
+  my $clk_v=''.
+    "\x{01A9}\x{01AA}\x{01AB}\x{01AC}".
+    "\x{01AD}\x{01AE}\x{01AF}\x{01B0}"
+
+  ;lycon::clknt(0x6000,$clk_v,$clk_i);
 
   my @cl=('0','1','2','3');
   print "\e[?25l\e[1J\e[1;1H".( draw() );
 
   # main loop
-  my $i=0;while(1) {
+  while(1) {
 
     # get env data
     my ($sz_x,$sz_y)=cash::tty_sz();
 
     my $busy=lycon::gtevcnt();
-    if($busy) {
+    if(1) {
       print "\e[1;1H".( draw() );
 
     };lycon::tick($busy);
-    print "\e[20;1H".$cl[$i];$i++;$i&=3;
+    print sprintf("\e[%i;1H%lc",$sz_y,lycon::clkdr());
 
     lycon::keyrd();
 
     if(lycon::keyrel($K{-ESC})) {last;};
+lycon::keychk();
 
-    lycon::keychk();
+    if(lycon::keyrel($K{-AUP})) {
+      $CACHE{-PTR_Y}--;
 
-    if(lycon::keyhel($K{-AUP})) {
-      $CACHE{-PTR_Y}-=$CACHE{-PTR_Y}>0;
-
-    } elsif(lycon::keyhel($K{-ADOWN})) {
-      $CACHE{-PTR_Y}+=$CACHE{-PTR_Y}<$sz_x;
+    };if(lycon::keytap($K{-ADWN})) {
+      $CACHE{-PTR_Y}++;
 
     };
 
