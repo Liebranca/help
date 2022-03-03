@@ -95,8 +95,20 @@ package cash;
 # ---   *   ---   *   ---
 
 # finds screen size and saves it to global cache
-# one of my favorite one liners
-sub tty_sz {return (($CACHE{-SC_SZY},$CACHE{-SC_SZX})=split ' ',`stty size`);};
+# no longer a one-liner ;<
+sub tty_sz {
+
+#  my $s;
+#  ioctl(STDOUT,TIOCGWINSZ,$s);
+
+  return  (
+
+    ( $CACHE{-SC_SZY},
+      $CACHE{-SC_SZX} )=
+
+  split ' ',`stty size`);
+
+};
 
 # palette to .Xresources
 sub paltox {

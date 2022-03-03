@@ -45,6 +45,9 @@ package board;
     -PTR_X => 0,
     -PTR_Y => 0,
 
+    -SCR_X => 0,
+    -SCR_Y => 0,
+
   );my %K=my @K=(
 
     -ESC=>['escape',''],
@@ -185,11 +188,55 @@ sub draw {
 # ---   *   ---   *   ---
 
   # get screen dimentions and card name
-  my ($sc_y,$sc_x)=cash::tty_sz();
+  my ($sc_x,$sc_y)=(0,0);
   my $title=$CACHE{-CARD}->{'id'};
 
+  my @ttysz=(0,0);lycon::ttysz(\@ttysz);
+  ($sc_x,$sc_y)=@ttysz;
+
+  # clear on window or font resize
+  if(
+
+     $sc_x!=$CACHE{-SCR_X}
+  || $sc_y!=$CACHE{-SCR_Y}
+
+  ) {$s.="\e[2J";};
+
+  # save current screen size
+  $CACHE{-SCR_X}=$sc_x;
+  $CACHE{-SCR_Y}=$sc_y;
+
+# ---   *   ---   *   ---
+
   # draw header
-  { my $header=(
+  { 
+
+    # calc avail space
+    my $space=$sc_x-(
+
+      cash::L(
+        $CHARS{-HED}->[0].
+        $CHARS{-HED}->[1]
+
+      )+cash::L(
+        $CHARS{-HED}->[2].' '.
+        $CACHE{-CARD}->{'progress'}
+
+      )
+
+    );
+
+# ---   *   ---   *   ---
+
+    if(length($title)>=$space) {
+      my @ar=split '',$title;
+      $title=(join '',@ar[0..$space-5]).'...';
+
+    };
+
+# ---   *   ---   *   ---
+
+    my $header=(
 
       cash::pex_col('_4').
       $CHARS{-HED}->[0].
@@ -202,6 +249,8 @@ sub draw {
       ' '.$CACHE{-CARD}->{'progress'}
 
     );
+
+# ---   *   ---   *   ---
 
     # calc escapes length
     my $pad=length($header)-cash::L($header);
@@ -265,14 +314,22 @@ sub draw {
 
 # ---   *   ---   *   ---
 
-    # join strings
+    # this or previous is multi-line item
     };if($cnt | $last_l) {
 
       $pad=length($todo)-cash::L($todo);
-      $todo=sprintf("\e[2K$alt_selch\%-".$space."s",$todo);
+      $todo=sprintf(
 
-      $t="\r\n".$t.$todo;
+        "\e[2K$alt_selch\%-".
+        $space."s",
 
+        $todo
+
+      );$t="\r\n".$t.$todo;
+
+# ---   *   ---   *   ---
+
+    # this and previous is single-line item
     } else {
 
       $t=$t.$todo;
@@ -282,6 +339,9 @@ sub draw {
 
     };
 
+# ---   *   ---   *   ---
+
+    # append and go next
     $s.=cash::C('__',$t,1)."\r\n";
     $last_l=$cnt!=0;
 
@@ -347,15 +407,18 @@ sub run {
   # main loop
   while(1) {
 
-    # get env data
-    my ($sz_x,$sz_y)=cash::tty_sz();
-
     my $busy=lycon::gtevcnt();
     if(1) {
       print "\e[1;1H".( draw() );
 
     };lycon::tick($busy);
-    print sprintf("\e[%i;1H%lc",$sz_y,lycon::clkdr());
+    print sprintf(
+      "\e[%i;1H%lc",
+
+      $CACHE{-SCR_Y},
+      lycon::clkdr()
+
+    );
 
     lycon::keyrd();lycon::keychk();
 
