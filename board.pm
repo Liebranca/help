@@ -16,8 +16,6 @@ package board;
   use strict;
   use warnings;
 
-  use utf8;
-
   use lib $ENV{'ARPATH'}.'/help/';
 
   use cash;
@@ -209,7 +207,7 @@ sub draw {
 # ---   *   ---   *   ---
 
   # draw header
-  { 
+  {
 
     # calc avail space
     my $space=$sc_x-(
@@ -400,7 +398,7 @@ sub run {
 
   ;lycon::clknt(0x6000,$clk_v,$clk_i);
 
-# ---   *   ---   *   ---  
+# ---   *   ---   *   ---
 
   print "\e[?25l\e[1J\e[1;1H".( draw() );
 

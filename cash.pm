@@ -1,16 +1,15 @@
 #!/usr/bin/perl
-
-#***************************
-# CASH                     *
-# rich string utilities    *
-#                          *
-# LIBRE SOFTWARE           *
-# Licensed under GNU GPL3  *
-# be a bro and inherit     *
-#                          *
-# CONTRIBUTORS             *
-# lyeb,                    *
-#***************************
+# ---   *   ---   *   ---
+# CASH
+# rich string utilities
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+# ---   *   ---   *   ---
 
 # deps
 package cash;
@@ -264,7 +263,7 @@ sub pex_col {
 # wrap text in color
 # in:00..FF,text
 sub C {
-  
+
   my $col=shift;
   my $text=shift;
   my $reset=shift;
@@ -280,6 +279,40 @@ sub C {
   );
 
 };
+
+# ---   *   ---   *   ---
+# break text at cursor move escapes (\e[y;xH)
+
+sub pelines {
+
+  my $text=shift;
+  my $es="\e";
+
+  my $key='';
+  my $value='';
+
+  my @lines=();
+
+  my $t="([^${es}]+)";
+  my $e="(${es}\[[0-9;]+H)+";
+
+  while($text=~ s/${e}${t}//) {
+
+    $key=$1;
+    $value=$2;
+
+    if($key && $value) {
+      push @lines,[$key,$value];
+
+    };
+
+  };
+
+  return \@lines;
+
+};
+
+# ---   *   ---   *   ---
 
 # get length of text discounting escapes
 # in:text
