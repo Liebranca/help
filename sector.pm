@@ -16,13 +16,26 @@ package sector;
   use strict;
   use warnings;
 
+  use lib $ENV{'ARPATH'}.'/lib/';
+  use avt;
+
   use lib $ENV{'ARPATH'}.'/help/';
 
   use vec4;
   use cash;
   use lycon;
+  use queue;
 
   binmode(STDOUT, ":utf8");
+
+# ---   *   ---   *   ---
+# global state
+
+my %CACHE=(
+
+  -CONTINUE=>0,
+
+);
 
 # ---   *   ---   *   ---
 # wchars used for drawing
@@ -30,7 +43,11 @@ package sector;
 
 my %CHARS=(
 
-  -WAIT=>["\x{01BD}","\x{01BD}"],
+  -WAIT=>[
+    "\x{0114}","\x{0114}",
+    "\x{005F}","\x{005F}",
+
+  ],
 
   -BOX=>{
 
@@ -46,6 +63,35 @@ my %CHARS=(
   },
 
 );
+
+# ---   *   ---   *   ---
+# how many *frames* each pause lasts
+
+my %STOPS=(
+
+  '*'=>0,
+  "'"=>0,
+  ','=>0,
+
+  '-'=>0,
+  ';'=>1,
+  ':'=>1,
+  '.'=>1,
+
+  '!'=>2,
+  '?'=>2,
+
+);{for my $value(values %STOPS) {
+
+  my $code='';
+  for my $x(0..$value) {
+    $code.='lycon::tick(0);';
+
+  };
+
+  $value=eval("sub {$code};");
+
+};}
 
 # ---   *   ---   *   ---
 # getters
@@ -66,7 +112,9 @@ sub rows {
   ];
 };
 
-sub is_text {return defined ((shift)->{-TEXT});};
+sub text {return (shift)->{-TEXT};};
+sub text_rem {return (shift)->{-TEXT_REM};};
+sub is_text {return defined ((shift)->text);};
 
 # ---   *   ---   *   ---
 
@@ -102,6 +150,36 @@ sub colwrap {
 };
 
 # ---   *   ---   *   ---
+# set message used for fill/diag/speech calls
+
+sub settext {
+
+  my $self=shift;
+  my $text=shift;
+
+  $self->{-TEXT}=$self->{-TEXT_REM}=$text;
+
+};sub resettext {
+
+  my $self=shift;
+  $self->{-TEXT}=$self->{-TEXT_REM}=$self->text;
+
+};
+
+# ---   *   ---   *   ---
+# parent/child relations
+
+sub setparent {
+
+  my $self=shift;
+  my $par=shift;
+
+  push @{$par->{-CHILDREN}},$self;
+  $self->{-PARENT}=$par;
+
+};sub parent {return (shift)->{-PARENT};};
+
+# ---   *   ---   *   ---
 # constructor
 
 sub nit {
@@ -115,6 +193,8 @@ sub nit {
 
   };
 
+# ---   *   ---   *   ---
+
   my $sec=bless {
 
     -CO=>$co,
@@ -124,10 +204,35 @@ sub nit {
     -DRAW=>[],
 
     -TEXT=>undef,
+    -TEXT_REM=>undef,
+
+    -PARENT=>undef,
+    -CHILDREN=>[],
 
   },'sector';
 
   return $sec;
+
+};
+
+# ---   *   ---   *   ---
+# clears the rect
+
+sub wipe {
+
+  my $self=shift;
+  my @rows=@{$self->rows()};
+
+  my $space=$self->sz->x-$self->co->x;
+  my $s='';
+
+  for my $y(@rows) {
+    $s.=sprintf
+      "\e[%u;%uH%-${space}s",
+      $y+1,$self->co->x,'';
+
+  };$self->colwrap($s);
+  $self->draw();
 
 };
 
@@ -137,7 +242,7 @@ sub nit {
 sub fill {
 
   my $self=shift;
-  my $text=shift;
+  my $text=$self->text_rem;
 
   my $co=$self->co;
   my $sz=$self->sz;
@@ -162,7 +267,6 @@ sub fill {
 
   } else {
 
-    $self->{-TEXT}=$text;
     my ($rem,$sub)=(1,$text);
 
     # wrap text at whitespaces
@@ -192,11 +296,14 @@ sub fill {
       $y+1,$co->x,(shift @lines);
 
   };$self->colwrap($s);
-  return join ' ',@lines;
+
+  # save leftovers for later print
+  $self->{-TEXT_REM}=join ' ',@lines;
 
 };
 
 # ---   *   ---   *   ---
+# get a rect within a rect (yo dawg... )
 
 sub inner {
 
@@ -219,7 +326,10 @@ sub inner {
 
   );
 
-  return nit($co,$sz,$color);
+  my $child=nit($co,$sz,$color);
+  $child->setparent($self);
+
+  return $child;
 
 };
 
@@ -272,6 +382,7 @@ sub box {
 };
 
 # ---   *   ---   *   ---
+# queues printing of rect
 
 sub draw {
 
@@ -279,8 +390,10 @@ sub draw {
   my $s=$self->{-DRAW};
 
   for my $ref(@$s) {
-    printf "$ref->[0]$ref->[1]";
+    lycon::loop::dwbuff(
+      "$ref->[0]$ref->[1]"
 
+    );
   };
 
 };
@@ -293,43 +406,20 @@ sub slowdraw {
   my $self=shift;
   my $s=$self->{-DRAW};
 
-  # how long each pause lasts
-  my $stops={
-
-    '*'=>0,
-    "'"=>0,
-    ','=>0,
-
-    '-'=>0,
-    ';'=>1,
-    ':'=>1,
-    '.'=>1,
-
-    '!'=>2,
-    '?'=>2,
-
-  };
-
 # ---   *   ---   *   ---
 # handle punctuation
 
   my $proc=[
 
-    sub {;},
+    \&lycon::nope,
     sub {
 
       my $c=shift;
 
-      STDOUT->flush();
-      lycon::tick(!$self->is_text);
+      if(exists $STOPS{$c}) {
+        queue::add($STOPS{$c});
 
-      if(exists $stops->{$c}) {
-        for my $x(0..$stops->{$c}) {
-          lycon::tick(0);
-
-        };
       };
-
     },
 
   ];
@@ -337,23 +427,152 @@ sub slowdraw {
 # ---   *   ---   *   ---
 # draw the text
 
-  for my $ref(@$s) {
-    printf "$ref->[0]";
+  my $blanks='';
+  while(@$s) {
 
+    my $ref=shift @$s;
+    $blanks.="$ref->[0]";
+
+    # skip blanks
     if($ref->[1]=~ m/^\s+$/) {
-      printf "$ref->[1]";next;
+      $blanks.="$ref->[1]";next;
 
     };
 
-    my @text=split '',"$ref->[1]";
+    # print char by char
+    my $text=$ref->[1];
+    $text=~ s/\s+$//;
 
+    my @text=split '',$text;
     for my $c(@text) {
 
-      printf "$c";
+      queue::add(sub {
+        lycon::loop::dwbuff(shift);
+
+      },$blanks.$c);$blanks='';
       $proc->[$c ne ' ']->($c);
 
     };
   };
+
+};
+
+# ---   *   ---   *   ---
+# 'waiting' logic for multi-page print
+
+sub rechk {
+
+  my $self=shift;
+  my $i=shift;
+
+  if($self->text_rem) {
+
+    my ($co,$sz)=(
+      $self->parent->co,
+      $self->parent->sz,
+
+    );
+
+    my $x=($co->x+$sz->x)-1;
+    my $y=($co->y+$sz->y)-1;
+
+# ---   *   ---   *   ---
+# clear rect and go to next page
+
+    if($CACHE{-CONTINUE}) {
+
+      $CACHE{-CONTINUE}=0;
+      $self->wipe();
+
+      lycon::loop::dwbuff(cash::C(
+        $self->parent->color,
+
+        sprintf("\e[%u;%uH ",
+        $y,$x
+
+        ),1
+
+      ));$self->speech();
+
+# ---   *   ---   *   ---
+# draw 'waiting' charsprite
+
+    } else {
+
+      lycon::loop::dwbuff(cash::C(
+        $self->parent->color,
+
+        sprintf("\e[%u;%uH%ls",
+        $y,$x,$CHARS{-WAIT}->[$i]
+
+        ),1
+
+# ---   *   ---   *   ---
+# ^repeat
+
+      ));$i++;$i&=3;
+      queue::add(\&rechk,$self,$i);
+
+    };
+  };
+};
+
+# ---   *   ---   *   ---
+# transfers main loop control to this module
+
+sub ctl_take {
+
+  my $self=shift;
+
+  my $k_ret=lycon::kbd::SVDEF(-RET);
+  my $k_space=lycon::kbd::SVDEF(-SPACE);
+
+  ;;lycon::kbd::REDEF(
+    -RET,'ret',
+    sub {$CACHE{-CONTINUE}=1;},
+    sub {$CACHE{-CONTINUE}=1;},
+    sub {$CACHE{-CONTINUE}=0;}
+
+  );lycon::kbd::REDEF(
+    -SPACE,'space','','','',
+
+  );lycon::kbd::ldkeys();
+
+# ---   *   ---   *   ---
+
+  lycon::ctl::switch(
+
+    sub {
+      if(queue::pending) {
+        queue::ex;
+
+      } else {
+
+        lycon::ctl::ret;
+        lycon::kbd::LDDEF(-RET,$k_ret);
+        lycon::kbd::LDDEF(-SPACE,$k_space);
+
+      };
+
+    },[],\&lycon::loop::ascii,
+
+  );
+
+};
+
+# ---   *   ---   *   ---
+# delivers a message in an old-school rpg way
+
+sub speech {
+
+  my $self=shift;
+
+  # queue first page
+  $self->fill();
+  $self->slowdraw();
+
+  # message continues...
+  queue::add(\&rechk,$self,0);
 
 };
 
