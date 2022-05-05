@@ -377,7 +377,11 @@ sub fill {
 # ---   *   ---   *   ---
 # handle highlighting
 
-    if(defined $selection) {
+    if(defined $selection
+    && $selection ne 'non'
+
+    ) {
+
       my ($prev,$next)=split ':',$selection;
 
       # unscape prev
@@ -501,7 +505,7 @@ sub box {
 
   for my $y(@{$self->rows()}) {
 
-    $s.=sprintf "\e[%u;%uH",$y+1,$co->x;
+    $s.=sprintf "\e[%u;%uH",$y+1,$co->x+1;
 
     if($y == $self->top_row) {
       $s.=$cor_ul.$mid_h.$cor_ur;
@@ -546,20 +550,14 @@ sub slowdraw {
 # ---   *   ---   *   ---
 # handle punctuation
 
-  my $proc=[
+  my $proc=sub {
 
-    \&lycon::nope,
-    sub {
+    my $c=shift;
+    if(exists $STOPS{$c}) {
+      queue::add($STOPS{$c});
 
-      my $c=shift;
-
-      if(exists $STOPS{$c}) {
-        queue::add($STOPS{$c});
-
-      };
-    },
-
-  ];
+    };
+  };
 
 # ---   *   ---   *   ---
 # draw the text
@@ -576,20 +574,27 @@ sub slowdraw {
 
     };
 
-    # print char by char
+# ---   *   ---   *   ---
+
     my $text=$ref->[1];
-    $text=~ s/\s+$//;
+    $text=~ s/\s+$//sg;
 
     my @text=split '',$text;
+    my $sub=$blanks;$blanks='';
+
+    # print char by char
     for my $c(@text) {
 
-      queue::add(sub {
-        lycon::loop::dwbuff(shift);
+      $sub.=$c;if($c ne ' ') {
 
-      },$blanks.$c);$blanks='';
-      $proc->[$c ne ' ']->($c);
+        queue::add(sub {
+          lycon::loop::dwbuff(shift);
 
+        },$sub);$sub='';$proc->($c);
+
+      };
     };
+
   };
 
 };
@@ -602,7 +607,10 @@ sub rechk {
   my $self=shift;
   my $i=shift;
 
-  if($self->text_ptr) {
+  my $rows=@{$self->rows()};
+
+  if(($self->text_ptr+$rows)
+  < @{$self->text_lines}) {
 
     my ($co,$sz)=(
       $self->parent->co,
@@ -629,7 +637,10 @@ sub rechk {
 
         ),1
 
-      ));$self->speech();
+      ));
+
+      $self->text_scroll(0);
+      $self->speech();
 
 # ---   *   ---   *   ---
 # draw 'waiting' charsprite
@@ -687,7 +698,7 @@ sub ctl_take {
 
         lycon::ctl::ret;
         lycon::kbd::LDDEF(-RET,$k_ret);
-        lycon::kbd::LDDEF(-SPACE,$k_space);
+        lycon::kbd::LDDEF(-JMP,$k_space);
 
       };
 
@@ -705,7 +716,7 @@ sub speech {
   my $self=shift;
 
   # queue first page
-  $self->fill();
+  $self->fill(0,'non');
   $self->slowdraw();
 
   # message continues...

@@ -286,29 +286,25 @@ sub C {
 sub pelines {
 
   my $text=shift;
-  my $es="\e";
-
-  my $key='';
-  my $value='';
 
   my @lines=();
 
-  my $e="(${es}\[[0-9;]+H)+";
-  my $t="(.*)";
+  my $es="\x1B\[[0-9]+;[0-9]+H";
+  my $cut='#:CUT;>';
 
-  while($text=~ s/${e}${t}//) {
+  while($text=~ s/(${es})/${cut}/) {
 
-    $key=$1;
-    $value=$2;
-
-    if($key && $value) {
-      push @lines,[$key,$value];
-
-    };
+    my $key=$1;
+    push @lines,[$key,''];
 
   };
 
-  return \@lines;
+  my $i=0;
+  for my $value(split m/${cut}/,$text) {
+    if(!length $value) {next;};
+    $lines[$i]->[1]=$value;$i++;
+
+  };return \@lines;
 
 };
 
