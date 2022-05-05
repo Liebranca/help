@@ -124,9 +124,8 @@ sub text {
     $self->{-TEXT}=$new;
 
     my $rows=int(@{$self->rows()});
-    $self->text_next(0);
-    $self->text_prev($rows);
 
+    $self->text_ptr(0);
     $self->text_fit();
 
   };
@@ -137,15 +136,9 @@ sub text {
 
 # ---   *   ---   *   ---
 
-sub text_prev {
+sub text_ptr {
   my $self=shift;
-  return avt::getset($self,-TEXT_PREV,shift);
-
-};
-
-sub text_next {
-  my $self=shift;
-  return avt::getset($self,-TEXT_NEXT,shift);
+  return avt::getset($self,-TEXT_PTR,shift);
 
 };
 
@@ -209,6 +202,45 @@ sub text_fit {
     };
 
   };$self->text_lines(\@lines);
+
+};
+
+# ---   *   ---   *   ---
+
+sub text_scroll {
+
+  my $self=shift;
+  my $dir=shift;
+
+  my $rows=@{$self->rows()};
+  my ($beg,$end)=($self->text_ptr,0);
+
+# ---   *   ---   *   ---
+# up
+
+  if($dir) {
+    $beg-=$rows;
+    if($beg<0) {$beg=0;};
+
+# ---   *   ---   *   ---
+# down
+
+  } else {
+
+    $beg+=$rows;
+    if($beg>=@{$self->text_lines()}) {
+      $beg-=$rows;
+
+    };
+
+  };
+
+# ---   *   ---   *   ---
+
+  $end=$beg+$rows;
+  $self->text_ptr($beg);
+
+  return ($beg,$end-1);
 
 };
 
@@ -284,8 +316,7 @@ sub nit {
     -DRAW=>[],
 
     -TEXT=>undef,
-    -TEXT_NEXT=>0,
-    -TEXT_PREV=>0,
+    -TEXT_PTR=>0,
     -TEXT_LINES=>[],
 
     -PARENT=>undef,
@@ -326,6 +357,9 @@ sub fill {
   my $self=shift;
   my $dir=shift;
 
+  my $selection=shift;
+  my $scroll=int(0+(!defined $selection));
+
   my $co=$self->co;
   my $sz=$self->sz;
 
@@ -336,35 +370,52 @@ sub fill {
   my @rows=@{$self->rows()};
 
 # ---   *   ---   *   ---
-# select lines from saved arr
+# we select lines from saved arr
 
-  { my ($beg,$end)=(0,0);
+  { my @all_lines=@{$self->text_lines()};
 
-    if($dir) {
+# ---   *   ---   *   ---
+# handle highlighting
 
-      my $idex=$self->text_prev;
+    if(defined $selection) {
+      my ($prev,$next)=split ':',$selection;
 
-      $beg=$idex-int(@rows);
-      $end=$idex-1;
+      # unscape prev
+      $all_lines[$prev]=cash::uscpx(
+        $all_lines[$prev]
 
-      $self->text_prev($beg);
-      $self->text_next($end+1);
+      # invert next
+      );$all_lines[$next]=
+        "\e[7m".$all_lines[$next]."\e[27m";
 
-    } else {
+      # scroll when going over end/top of rect
+      if($next>$prev) {
+        $scroll=int(($next%@rows)==0);
 
-      my $idex=$self->text_next;
-
-      $beg=$idex;
-      $end=$idex+int(@rows)-1;
-
-      if($end<=@{$self->text_lines()}) {
-        $self->text_prev($beg);
-        $self->text_next($end+1);
+      } elsif($next<$prev) {
+        $scroll=int(($next%@rows)==(@rows-1));;
 
       };
 
-    };@lines=@{$self->text_lines()}[$beg..$end];
+    };
 
+# ---   *   ---   *   ---
+# scroll up or down if need
+
+    my $beg=$self->text_ptr;
+    my $end=$beg+@rows-1;
+
+    if($scroll) {
+      ($beg,$end)=$self->text_scroll($dir);
+
+    };
+
+# ---   *   ---   *   ---
+# get slice
+
+    @lines=@all_lines[$beg..$end];
+
+    # add padding
     for my $line(@lines) {
       if(!defined $line) {$line='';};
 
@@ -380,23 +431,11 @@ sub fill {
 
     $s.=sprintf
       "\e[%u;%uH%-${space}s",
-      $y+1,$co->x,$lines[$i];
+      $y+1,$co->x,"$lines[$i]";
 
     $i++;
 
   };$self->colwrap($s);
-
-};
-
-# ---   *   ---   *   ---
-# ^same, for a list of strings
-
-sub fill_list {
-
-  my $self=shift;
-
-  my $co=$self->co;
-  my $sz=$self->sz;
 
 };
 
@@ -563,7 +602,7 @@ sub rechk {
   my $self=shift;
   my $i=shift;
 
-  if($self->text_next) {
+  if($self->text_ptr) {
 
     my ($co,$sz)=(
       $self->parent->co,

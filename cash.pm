@@ -293,8 +293,8 @@ sub pelines {
 
   my @lines=();
 
-  my $t="([^${es}]+)";
   my $e="(${es}\[[0-9;]+H)+";
+  my $t="(.*)";
 
   while($text=~ s/${e}${t}//) {
 
