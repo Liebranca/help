@@ -557,15 +557,32 @@ sub wrap_word {
 
   };
 
+  # there is a new line
+  if($line=~ m/([^\r\n]+)\r?\n/) {
+
+    my $s=$1;
+
+    if($space>=length rtrim($s)) {
+      $line=~ s/^${s}\r?\n//;
+
+      return (rtrim($s),$line);
+
+    };
+  };
+
+# ---   *   ---   *   ---
+
   # else wrap
   my $sub=substr $line,0,$space;
   my $rem=substr $line,length $sub,$len;
 
   # sub endswith ws or rem startswith ws
-  my $sub_w=($sub=~ m/\s+$/);
-  my $rem_w=($rem=~ m/^\s+/);
+  my $sub_w=($sub=~ m/((\s+)|(\r?\n))$/);
+  my $rem_w=($rem=~ m/^((\s+)|(\r?\n))/);
 
-  # if that doesn't happen find earlier place to cut
+# ---   *   ---   *   ---
+
+  # fail: find earlier place to cut
   if(!$sub_w && !$rem_w) {
 
     $sub=~ s/(.*[\s+|\.|\,])//;$sub=$1;

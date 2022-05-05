@@ -112,9 +112,105 @@ sub rows {
   ];
 };
 
-sub text {return (shift)->{-TEXT};};
-sub text_rem {return (shift)->{-TEXT_REM};};
+# ---   *   ---   *   ---
+
+sub text {
+
+  my $self=shift;
+  my $new=shift;
+
+  if(defined $new) {
+
+    $self->{-TEXT}=$new;
+
+    my $rows=int(@{$self->rows()});
+    $self->text_next(0);
+    $self->text_prev($rows);
+
+    $self->text_fit();
+
+  };
+
+  return $self->{-TEXT};
+
+};
+
+# ---   *   ---   *   ---
+
+sub text_prev {
+  my $self=shift;
+  return avt::getset($self,-TEXT_PREV,shift);
+
+};
+
+sub text_next {
+  my $self=shift;
+  return avt::getset($self,-TEXT_NEXT,shift);
+
+};
+
+sub text_lines {
+  my $self=shift;
+  return avt::getset($self,-TEXT_LINES,shift);
+
+};
+
 sub is_text {return defined ((shift)->text);};
+
+# ---   *   ---   *   ---
+
+sub text_fit {
+
+  my $self=shift;
+
+  my @lines=();
+
+  my $space=$self->sz->x-$self->co->x;
+  my @rows=@{$self->rows()};
+
+  my ($rem,$sub)=(1,$self->text);
+
+# ---   *   ---   *   ---
+# wrap text at whitespaces
+
+  while($rem) {
+    ($rem,$sub)=cash::wrap_word(
+      $sub,$space
+
+    );
+
+    if(defined $rem) {
+
+      my $line_strip=$rem;
+      $line_strip=~ s/^\s+$//sg;
+
+      if(!length $line_strip) {next;};
+
+      push @lines,$rem;
+
+    }
+
+
+# ---   *   ---   *   ---
+# append left-overs
+
+  };if(defined $rem.$sub) {
+    my @left=split /\r?\n/,$rem.$sub;
+
+    for my $line(@left) {
+
+      my $line_strip=$line;
+      $line_strip=~ s/^\s+$//sg;
+
+      if(!length $line_strip) {next;};
+
+      push @lines,$line;
+
+    };
+
+  };$self->text_lines(\@lines);
+
+};
 
 # ---   *   ---   *   ---
 
@@ -150,26 +246,9 @@ sub colwrap {
 };
 
 # ---   *   ---   *   ---
-# set message used for fill/diag/speech calls
-
-sub settext {
-
-  my $self=shift;
-  my $text=shift;
-
-  $self->{-TEXT}=$self->{-TEXT_REM}=$text;
-
-};sub resettext {
-
-  my $self=shift;
-  $self->{-TEXT}=$self->{-TEXT_REM}=$self->text;
-
-};
-
-# ---   *   ---   *   ---
 # parent/child relations
 
-sub setparent {
+;;sub setparent {
 
   my $self=shift;
   my $par=shift;
@@ -178,6 +257,7 @@ sub setparent {
   $self->{-PARENT}=$par;
 
 };sub parent {return (shift)->{-PARENT};};
+;;sub children {return (shift)->{-CHILDREN};};
 
 # ---   *   ---   *   ---
 # constructor
@@ -204,7 +284,9 @@ sub nit {
     -DRAW=>[],
 
     -TEXT=>undef,
-    -TEXT_REM=>undef,
+    -TEXT_NEXT=>0,
+    -TEXT_PREV=>0,
+    -TEXT_LINES=>[],
 
     -PARENT=>undef,
     -CHILDREN=>[],
@@ -237,12 +319,12 @@ sub wipe {
 };
 
 # ---   *   ---   *   ---
-# fits a string to the given rect
+# fills rect with next page of text
 
 sub fill {
 
   my $self=shift;
-  my $text=$self->text_rem;
+  my $dir=shift;
 
   my $co=$self->co;
   my $sz=$self->sz;
@@ -254,34 +336,37 @@ sub fill {
   my @rows=@{$self->rows()};
 
 # ---   *   ---   *   ---
-# fill rect with char
+# select lines from saved arr
 
-  if((length $text)<=1) {
-    for my $y(0..@rows-1) {
-      push @lines,($text)x$space;
+  { my ($beg,$end)=(0,0);
 
-    };
+    if($dir) {
 
-# ---   *   ---   *   ---
-# split text into lines
+      my $idex=$self->text_prev;
 
-  } else {
+      $beg=$idex-int(@rows);
+      $end=$idex-1;
 
-    my ($rem,$sub)=(1,$text);
+      $self->text_prev($beg);
+      $self->text_next($end+1);
 
-    # wrap text at whitespaces
-    while($rem) {
-      ($rem,$sub)=cash::wrap_word(
-        $sub,$space
+    } else {
 
-      );if($rem) {push @lines,$rem;};
+      my $idex=$self->text_next;
 
-    # append left-overs
-    };push @lines,$sub;
+      $beg=$idex;
+      $end=$idex+int(@rows)-1;
 
-    # fill with blank lines if need
-    while(@lines<@rows) {
-      push @lines,'';
+      if($end<=@{$self->text_lines()}) {
+        $self->text_prev($beg);
+        $self->text_next($end+1);
+
+      };
+
+    };@lines=@{$self->text_lines()}[$beg..$end];
+
+    for my $line(@lines) {
+      if(!defined $line) {$line='';};
 
     };
 
@@ -290,15 +375,28 @@ sub fill {
 # ---   *   ---   *   ---
 # build line strings
 
+  my $i=0;
   for my $y(@rows) {
+
     $s.=sprintf
       "\e[%u;%uH%-${space}s",
-      $y+1,$co->x,(shift @lines);
+      $y+1,$co->x,$lines[$i];
+
+    $i++;
 
   };$self->colwrap($s);
 
-  # save leftovers for later print
-  $self->{-TEXT_REM}=join ' ',@lines;
+};
+
+# ---   *   ---   *   ---
+# ^same, for a list of strings
+
+sub fill_list {
+
+  my $self=shift;
+
+  my $co=$self->co;
+  my $sz=$self->sz;
 
 };
 
@@ -465,7 +563,7 @@ sub rechk {
   my $self=shift;
   my $i=shift;
 
-  if($self->text_rem) {
+  if($self->text_next) {
 
     my ($co,$sz)=(
       $self->parent->co,
@@ -525,7 +623,7 @@ sub ctl_take {
   my $self=shift;
 
   my $k_ret=lycon::kbd::SVDEF(-RET);
-  my $k_space=lycon::kbd::SVDEF(-SPACE);
+  my $k_space=lycon::kbd::SVDEF(-JMP);
 
   ;;lycon::kbd::REDEF(
     -RET,'ret',
@@ -534,7 +632,7 @@ sub ctl_take {
     sub {$CACHE{-CONTINUE}=0;}
 
   );lycon::kbd::REDEF(
-    -SPACE,'space','','','',
+    -JMP,'space','','','',
 
   );lycon::kbd::ldkeys();
 
