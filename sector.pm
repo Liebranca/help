@@ -37,6 +37,28 @@ my %CACHE=(
 
 );
 
+sub set_continue {$CACHE{-CONTINUE}=1;};
+sub unset_continue {$CACHE{-CONTINUE}=0;};
+
+;;sub QUEUE {
+  return lycon::ctl::get_module_queue;
+
+};sub ctl_take {lycon::ctl::transfer();};
+
+lycon::ctl::REGISTER(
+
+  -ACCEPT,[
+
+    \&set_continue,\&set_continue,
+    \&unset_continue
+
+  ],
+
+  -ACCEL,[],
+  -MOV_A,[]
+
+);
+
 # ---   *   ---   *   ---
 # wchars used for drawing
 # adjusted for lycon font
@@ -554,7 +576,7 @@ sub slowdraw {
 
     my $c=shift;
     if(exists $STOPS{$c}) {
-      queue::add($STOPS{$c});
+      QUEUE->add($STOPS{$c});
 
     };
   };
@@ -587,7 +609,7 @@ sub slowdraw {
 
       $sub.=$c;if($c ne ' ') {
 
-        queue::add(sub {
+        QUEUE->add(sub {
           lycon::loop::dwbuff(shift);
 
         },$sub);$sub='';$proc->($c);
@@ -659,7 +681,7 @@ sub rechk {
 # ^repeat
 
       ));$i++;$i&=3;
-      queue::add(\&rechk,$self,$i);
+      QUEUE->add(\&rechk,$self,$i);
 
     };
   };
@@ -668,45 +690,7 @@ sub rechk {
 # ---   *   ---   *   ---
 # transfers main loop control to this module
 
-sub ctl_take {
 
-  my $self=shift;
-
-  my $k_ret=lycon::kbd::SVDEF(-RET);
-  my $k_space=lycon::kbd::SVDEF(-JMP);
-
-  ;;lycon::kbd::REDEF(
-    -RET,'ret',
-    sub {$CACHE{-CONTINUE}=1;},
-    sub {$CACHE{-CONTINUE}=1;},
-    sub {$CACHE{-CONTINUE}=0;}
-
-  );lycon::kbd::REDEF(
-    -JMP,'space','','','',
-
-  );lycon::kbd::ldkeys();
-
-# ---   *   ---   *   ---
-
-  lycon::ctl::switch(
-
-    sub {
-      if(queue::pending) {
-        queue::ex;
-
-      } else {
-
-        lycon::ctl::ret;
-        lycon::kbd::LDDEF(-RET,$k_ret);
-        lycon::kbd::LDDEF(-JMP,$k_space);
-
-      };
-
-    },[],\&lycon::loop::ascii,
-
-  );
-
-};
 
 # ---   *   ---   *   ---
 # delivers a message in an old-school rpg way
@@ -720,7 +704,7 @@ sub speech {
   $self->slowdraw();
 
   # message continues...
-  queue::add(\&rechk,$self,0);
+  QUEUE->add(\&rechk,$self,0);
 
 };
 
