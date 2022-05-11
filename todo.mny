@@ -1,0 +1,19 @@
+board 0.2a;
+
+x enable progress bar for new drawing system;
+~ opening *.mny files from command line;
+~ enable arrow keys for task selection;
+~ highlight selected task;
+~ toggle selected task state with return key;
+~ save task states on file close;
+~ enable scrolling for long task lists;
+
+~ enable adding/removing tasks at runtime;
+
+~ overhaul peso-str utils for drawing;
+
+~ (low-prio) put parsing rules for *.mny files on a langdef;
+
+~ extend *.mny syntax to allow for priority, tags, linking of related task lists (for 'we need this project updated' type deals) and any such goodies;
+
+~ ^think about what 'any such goodies' would be... syntax highlighting comes to mind c:;

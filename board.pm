@@ -16,11 +16,13 @@ package board;
   use strict;
   use warnings;
 
-  use lib $ENV{'ARPATH'}.'/help/';
+  use Cwd qw(abs_path);
+
+  use lib $ENV{'ARPATH'}.'/lib/';
 
   use cash;
-  use genks;
-
+  use sector;
+  use vec4;
   use lycon;
 
 
@@ -28,7 +30,7 @@ package board;
 # info
 
   use constant {
-    VERSION =>  '0.1b',
+    VERSION =>  '0.2b',
     AUTHOR  =>  'IBN-3DILA',
 
   };
@@ -36,58 +38,71 @@ package board;
 # ---   *   ---   *   ---
 # global state
 
-  my %CACHE=(
+my %CACHE=(
 
-    -CARD  => {},
+  -CARD  => {},
 
-    -PTR_X => 0,
-    -PTR_Y => 0,
+  -PTR_X => 0,
+  -PTR_Y => 0,
 
-    -SCR_X => 0,
-    -SCR_Y => 0,
+  -SCR_X => 0,
+  -SCR_Y => 0,
 
-  );my %K=my @K=(
+);
 
-    -ESC=>['escape',''],
+# ---   *   ---   *   ---
 
-    -LALT=>['LAlt',''],
-    -RALT=>['RAlt',''],
-    -LSHIFT=>['LShift',''],
+sub on_accept {
+  do_task($CACHE{-CARD}->{'sel_task'});
 
-    -AUP=>['up',''],
-    -ADWN=>['down',''],
-    -ARGT=>['right',''],
-    -ALFT=>['left',''],
+};lycon::ctl::REGISTER(
 
-    -ERET=>['ret',''],
+  -ACCEPT,[\&on_accept,0,0],
+  -MOV_A,[
 
-  );
+    sub {$CACHE{-PTR_Y}--;},0,0,
+    sub {$CACHE{-PTR_Y}++;},0,0,
+
+  ],
+
+);sub QUEUE {
+  return lycon::ctl::get_module_queue;
+
+};
 
 # ---   *   ---   *   ---
 # drawing macros
 
-  my %CHARS=(
+my %CHARS=(
 
-    -DONE => [
-      cash::C('_F','  [').
-      cash::C('_9','~').
-      cash::C('_F',']',1),
+  -DONE => [
 
-      cash::C('_F','  [').
-      cash::C('_A','x').
-      cash::C('_F',']',1),
+    cash::C('_F','  [',0).
+    cash::C('_1','~',0).
+    cash::C('_F','] ',0),
 
-    ],
+    cash::C('_F','  [',0).
+    cash::C('_2','x',0).
+    cash::C('_F','] ',0),
 
-    -HED => [
-      chr(0x01D6),
+    cash::C('_F','  [',0).
+    cash::C('_3','^',0).
+    cash::C('_F','] ',0),
 
-      cash::C('_3',' < '),
-      cash::C('_3',' > ')
+  ],
 
-    ],
+  -HED => [
 
-  );binmode(STDOUT, ":utf8");
+    '['.chr(0x01D6),
+
+    ': ',
+    ' ',
+
+    ' ]',
+
+  ],
+
+);
 
 # ---   *   ---   *   ---
 # card managing
@@ -106,8 +121,25 @@ sub new_card {
 
 };
 
-sub load_cards {
-  ;
+sub load_card {
+
+  my $path=abs_path(shift);
+  my @lines=split ";\n",`cat $path`;
+
+  my $id=shift @lines;
+  new_card($id);
+
+  for my $line(@lines) {
+    $line=cash::trim($line);
+
+    if(length $line) {
+      my ($trash,$done,$todo)
+        =split m/^(x|~)\s*/,$line;
+
+      add_task($todo,$done eq 'x');
+
+    };
+  };
 
 };
 
@@ -118,29 +150,54 @@ sub load_cards {
 # adds a new task to the board
 sub add_task {
 
+  my $name=shift;
+  my $done=shift;
+
+  if(!defined $done) {$done=0;};
+
   push @{ $CACHE{-CARD}->{'tasks'} },{
 
-    'todo'  => shift,
+    'todo'  => $name,
 
     'prio'  => 0,
-    'done'  => 0,
+    'done'  => $done,
 
   };calc_progress();
 
 };
 
+# ---   *   ---   *   ---
 # in:idex
 # toggle task done/not done
+
 sub do_task {
 
   my $idex=shift;
 
-  $CACHE{-CARD}->{'tasks'}[$idex]{'done'}^=1;
+  $CACHE{-CARD}->{'tasks'}->[$idex]->{'done'}^=1;
   calc_progress();
 
 };
 
+# ---   *   ---   *   ---
+
 sub calc_progress {
+
+  my $sz=shift;
+  if(!defined $sz) {$sz=16;} else {
+
+    $sz-=length(
+      $CHARS{-HED}->[0].
+      $CHARS{-HED}->[1].
+
+      $CACHE{-CARD}->{'id'}.
+
+      $CHARS{-HED}->[2].
+      $CHARS{-HED}->[3]
+
+    )+8;
+
+  };
 
   my ($done,$total)=(0,0);
   for my $t(@{$CACHE{-CARD}->{'tasks'}}) {
@@ -149,7 +206,7 @@ sub calc_progress {
   };my $val=($done/$total);
   my $bar="\x{01E3}"x(int($val*16));
 
-  my $col1=cash::C('_4','');
+  my $col1=cash::C('_C','');
   my $col2=cash::C('_F','');
   my $col3=cash::C('_3','');
 
@@ -161,8 +218,26 @@ sub calc_progress {
 
   $CACHE{-CARD}->{'progress'}=sprintf(
 
-    "\{$col1%-16ls$col2\}".
+    "\{$col1%-".($sz)."ls$col2\}".
     " $col3$fm$col2%%",$bar,($val*100)
+
+  );
+
+  $CACHE{-CARD}->{'header'}=(
+
+    $CHARS{-HED}->[0].
+    $CHARS{-HED}->[1].
+
+    $col3.
+    $CACHE{-CARD}->{'id'}.
+
+    $col2.
+    $CHARS{-HED}->[2].
+
+    $CACHE{-CARD}->{'progress'}.
+
+    "\e[0m".
+    $CHARS{-HED}->[3]
 
   );
 
@@ -295,6 +370,7 @@ sub draw {
     # wrap task description
     my $cnt=0;
     my $sub=1;while($sub) {
+
       ($sub,$todo)=cash::wrap_word(
         $todo,$space
 
@@ -303,8 +379,12 @@ sub draw {
         my $spad=length($sub)-cash::L($sub);
         $sub=sprintf("\%-".$spad."s",$sub);
 
-        $t.=("$alt_selch$sub\r\n","$sub\r\n")[!$cnt].
-          (' 'x$pad);
+        $t.=(
+
+          "$alt_selch$sub\r\n",
+          "$sub\r\n"
+
+        )[!$cnt].(' 'x$pad);
 
         $cnt++;
 
@@ -343,84 +423,147 @@ sub draw {
     $s.=cash::C('__',$t,1)."\r\n";
     $last_l=$cnt!=0;
 
-  };return $s;
+  };lycon::loop::dwbuff($s);
+  QUEUE->add(\&draw,0);
 
 };
 
 # ---   *   ---   *   ---
+# adds checkmark fields to the fitted text
 
-sub quit {
-  print "\e[0m\e[1J\e[1;1H\e[?25h";
-  exit;
+sub add_ticks {
 
+  my $inner=shift;
+
+  my $add_tick=1;
+  my $i=0;
+
+  my $rm=$CHARS{-DONE};
+  my $pad=' 'x(cash::L($rm->[0]));
+
+# ---   *   ---   *   ---
+# iter the fitted lines
+
+  for my $line(@{$inner->text_lines()}) {
+
+    my $task=$CACHE{-CARD}->{'tasks'}->[$i];
+    my $selected=0;
+      #$i==$CACHE{-CARD}->{'sel_task'};
+
+    my $color=($selected)
+      ? '8'.(split '',$inner->color)[1]
+      : $inner->color
+      ;
+
+    # append tick+line
+    if($add_tick) {
+
+      # remove previous tick
+      my $r0=$rm->[0];
+      my $r1=$rm->[1];
+      $line=~ s/^\Q${r0}//;
+      $line=~ s/^\Q${r1}//;
+
+      $line=cash::uscpx($line);
+
+      # add new one
+      $line=(
+        $rm->[$task->{'done'}].
+        cash::C($color,$line,1)
+
+      );$add_tick=0;
+
+# ---   *   ---   *   ---
+
+    # append line
+    } else {
+      $line=~ s/${pad}//;
+      $line=cash::uscpx($line);
+
+      $line=$pad.cash::C($color,$line,1);
+
+    };
+
+    # add tick after the tag
+    if($line=~ m/#:pad;>/) {
+      $add_tick=1;$i++;
+
+    };
+  };
 };
 
-sub run {
+# ---   *   ---   *   ---
 
-  # initialize console
-  lycon::keynt(genks::pl_keymap(\%K,\@K));
+sub ctl_take {
 
-  # set key callbacks
-  my $k_up=lycon->ffi()->closure(
+#  lycon::dpy::beg;
 
-    sub {$CACHE{-PTR_Y}--;}
+  my @ttysz=(0,0);lycon::ttysz(\@ttysz);
 
-  );lycon::keycall($K{-AUP},0,$k_up);
+  my $sec=sector::nit(
 
-  my $k_dwn=lycon->ffi()->closure(
+    vec4::nit(0,0),
+    vec4::nit(@ttysz),
 
-    sub {$CACHE{-PTR_Y}++;}
+    '07',
 
-  );lycon::keycall($K{-ADWN},0,$k_dwn);
+  );
 
-  my $k_esc=lycon->ffi()->closure(
-
-    \&quit
-
-  );lycon::keycall($K{-AESC},2,$k_esc);
-
-  my $k_ret=lycon->ffi()->closure(
-
-    sub {
-
-      do_task($CACHE{-CARD}->{'sel_task'});
-
-    }
-
-  );lycon::keycall($K{-ERET},2,$k_ret);
+  $sec->box();
+  $sec->draw();
 
 # ---   *   ---   *   ---
 
-  my $clk_i=8;
-  my $clk_v=''.
-    "\x{01A9}\x{01AA}\x{01AB}\x{01AC}".
-    "\x{01AD}\x{01AE}\x{01AF}\x{01B0}"
+  my $text='';
 
-  ;lycon::clknt(0x6000,$clk_v,$clk_i);
+  for my $task(@{$CACHE{-CARD}->{'tasks'}}) {
+
+    $text.=$task->{'todo'};
+    $text.="\n#:pad;>\n";
+
+  };
+
+# ---   *   ---   *   ---
+# init the rect
+
+  my $inner=$sec->inner(4,'07');
+  $inner->co->{-Y}-=2;
+  $inner->co->{-X}-=2;
+  $inner->sz->{-X}-=4;
+
+  # apply/fit text to rect
+  $inner->text($text);
+
+  # add ticks
+  add_ticks($inner);
 
 # ---   *   ---   *   ---
 
-  print "\e[?25l\e[1J\e[1;1H".( draw() );
+  $inner->fill(0,'non');
+  $inner->draw();
 
-  # main loop
-  while(1) {
+# ---   *   ---   *   ---
 
-    my $busy=lycon::gtevcnt();
-    if(1) {
-      print "\e[1;1H".( draw() );
+  my $prog=sector::nit(
 
-    };lycon::tick($busy);
-    print sprintf(
-      "\e[%i;1H%lc",
+    vec4::nit(4,0),
+    vec4::nit($ttysz[0]-4,1),
 
-      $CACHE{-SCR_Y},
-      lycon::clkdr()
+    '07'
 
-    );
+  );
 
-    lycon::keyrd();lycon::keychk();
+# ---   *   ---   *   ---
 
-  };quit();
+  calc_progress($prog->sz->x-4);
+
+  $prog->{-TEXT_LINES}=[$CACHE{-CARD}->{'header'}];
+  $prog->fill();
+  $prog->draw();
+
+#  alt_draw();QUEUE->add(\&alt_draw,$inner);
+#  lycon::ctl::transfer();
+
 };
 
 # ---   *   ---   *   ---

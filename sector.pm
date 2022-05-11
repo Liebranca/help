@@ -17,14 +17,12 @@ package sector;
   use warnings;
 
   use lib $ENV{'ARPATH'}.'/lib/';
-  use avt;
 
-  use lib $ENV{'ARPATH'}.'/help/';
+  use avt;
 
   use vec4;
   use cash;
   use lycon;
-  use queue;
 
   binmode(STDOUT, ":utf8");
 
@@ -197,28 +195,26 @@ sub text_fit {
     if(defined $rem) {
 
       my $line_strip=$rem;
-      $line_strip=~ s/^\s+$//sg;
+      $line_strip=~ s/^\s+$//;
 
       if(!length $line_strip) {next;};
-
       push @lines,$rem;
 
-    }
+    };
 
 
 # ---   *   ---   *   ---
 # append left-overs
 
   };if(defined $rem.$sub) {
-    my @left=split /\r?\n/,$rem.$sub;
+    my @left=split /\n/,$rem.$sub;
 
     for my $line(@left) {
 
       my $line_strip=$line;
-      $line_strip=~ s/^\s+$//sg;
+      $line_strip=~ s/^\s+$//;
 
       if(!length $line_strip) {next;};
-
       push @lines,$line;
 
     };
@@ -455,9 +451,12 @@ sub fill {
   my $i=0;
   for my $y(@rows) {
 
+    my $line=$lines[$i];
+    $line=~ s/#:pad;>//;
+
     $s.=sprintf
       "\e[%u;%uH%-${space}s",
-      $y+1,$co->x,"$lines[$i]";
+      $y+1,$co->x,"$line";
 
     $i++;
 

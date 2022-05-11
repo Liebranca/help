@@ -1,0 +1,59 @@
+#!/usr/bin/perl
+# ---   *   ---   *   ---
+# TAKE MONEY
+# Quick util for opening
+# *.mny files from tty
+#
+# LIBRE SOFTWARE
+# Licensed under GNU GPL3
+# be a bro and inherit
+#
+# CONTRIBUTORS
+# lyeb,
+# ---   *   ---   *   ---
+
+# deps
+  use strict;
+  use warnings;
+
+  use Cwd qw(abs_path);
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+
+  use lycon;
+  use board;
+
+# ---   *   ---   *   ---
+
+my $PATH=abs_path('.');
+if(@ARGV) {$PATH.=shift @ARGV;};
+
+# ---   *   ---   *   ---
+# for now we only use *.mny for task lists
+# this will change. eventually.
+# until that day comes, we just call this sub
+# without running any further checks
+
+sub open_todo {
+
+  my $end=0;
+  lycon::kbd::DEFINE(
+
+    -ESC,'escape',0,0,sub {$end=1;}
+
+  );lycon::loop::set_quit(sub {return $end;});
+
+  lycon::clk::nit();
+  lycon::kbd::nit();
+  lycon::dpy::beg();
+
+  board::load_card($PATH."/todo.mny");
+
+  board::ctl_take();
+  lycon::loop::run();
+  lycon::dpy::end();
+
+};if(-e $PATH."/todo.mny") {open_todo()}
+else {printf "$PATH\n";};
+
+# ---   *   ---   *   ---

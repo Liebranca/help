@@ -1,0 +1,14 @@
+#!/usr/bin/perl
+
+# test file for cash module
+# keep it tidy
+
+# ---   *   ---   *   ---
+# deps
+  use strict;
+  use warnings;
+
+  use lib $ENV{'ARPATH'}.'/lib/';
+  use cash;
+
+# ---   *   ---   *   ---
