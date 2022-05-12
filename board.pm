@@ -55,6 +55,28 @@ my @DATA=();
 
 # ---   *   ---   *   ---
 
+sub popspawn {
+
+  my @ttysz=(0,0);lycon::ttysz(\@ttysz);
+  my $rect=sector::nit(
+
+    vec4::nit(int($ttysz[0]/4),int($ttysz[1]/4)),
+    vec4::nit(int($ttysz[0]/2),int($ttysz[1]/2)),
+
+    'CE'
+
+  );
+
+  $rect->wipe();
+  $rect->box();
+  $rect->draw();
+
+  $rect->shadow();
+
+};
+
+# ---   *   ---   *   ---
+
 ;;sub on_exit {
 
   save_card();
@@ -89,12 +111,27 @@ my @DATA=();
 
 };lycon::ctl::REGISTER(
 
+  # escape && return
   -EXIT,[0,0,\&on_exit],
   -ACCEPT,[\&on_accept,0,0],
+
   -MOV_A,[
 
+    # arrow up
     sub {sel_change(-1);},0,0,
+
+    # arrow down
     sub {sel_change(+1);},0,0,
+
+  ],
+
+  -MOV_B,[
+
+    # w
+    0,0,0,
+
+    # a
+    \&popspawn,0,0,
 
   ],
 

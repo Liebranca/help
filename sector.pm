@@ -304,9 +304,12 @@ sub colwrap {
 
   my $self=shift;
   my $s=shift;
+  my $alt=shift;
+
+  my $color=(defined $alt) ? $alt :$self->color;
 
   $s=cash::pelines($s);
-  unshift @$s,[cash::pex_col($self->color),''];
+  unshift @$s,[cash::pex_col($color),''];
   push @$s,[cash::pex_col('__'),''];
 
   $self->{-DRAW}=$s;
@@ -378,9 +381,39 @@ sub wipe {
   for my $y(@rows) {
     $s.=sprintf
       "\e[%u;%uH%-${space}s",
-      $y+1,$self->co->x,'';
+      $y+1,$self->co->x+1,'';
 
   };$self->colwrap($s);
+  $self->draw();
+
+};sub shadow {
+
+  my $self=shift;
+  my @rows=@{$self->rows()};
+
+  my $space=$self->sz->x;
+  my $s='';
+
+  for my $y(@rows) {
+
+    $s.=sprintf
+
+      "\e[%u;%uH ",
+
+      $y+2,
+      $self->co->x+1+$self->sz->x;
+
+  };
+
+  $s.=sprintf
+
+    "\e[%u;%uH%-${space}s",
+
+    $rows[-1]+2,
+    $self->co->x+2,
+    '';
+
+  $self->colwrap($s,'88');
   $self->draw();
 
 };
