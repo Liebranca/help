@@ -443,7 +443,7 @@ sub wrap_word {
       my $ss="\Q$s";
       $line=~ s/^${ss}\n//;
 
-      return (rtrim($s),$line);
+      return (sprintf("%-".$space."s",$s),$line);
 
     };
   };
@@ -469,7 +469,15 @@ sub wrap_word {
     if(!$sub) {$sub=substr $line,0,$space;}
     $rem=substr $line,length $sub,$len;
 
-  };return (rtrim($sub),ltrim($rem));
+  };
+
+# ---   *   ---   *   ---
+
+  return (
+    sprintf("%-".$space."s",$sub),
+    ltrim($rem)
+
+  );
 
 
 };

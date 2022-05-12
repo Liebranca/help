@@ -46,6 +46,8 @@ my %CACHE=(
   -PTR_Y => 0,
   -UPDATE=> 0,
 
+  -SSEL  => '0:0',
+
 );
 
 # ugh. put this on cache later
@@ -66,14 +68,21 @@ my @DATA=();
 
 };sub sel_change {
 
-  $CACHE{-CARD}->{'sel_task'}=(
+  my $step=shift;
+  my $top=@{$CACHE{-CARD}->{'tasks'}}-1;
 
-    $CACHE{-PTR_Y}%(@{
-      $CACHE{-CARD}->{'tasks'}
+  $CACHE{-PTR_Y}+=$step;
 
-    })
+  if($CACHE{-PTR_Y}<0) {
+    $CACHE{-PTR_Y}=0;
 
-  );$CACHE{-UPDATE}=1;
+  } elsif($CACHE{-PTR_Y}>$top) {
+    $CACHE{-PTR_Y}=$top;
+
+  };
+
+  $CACHE{-CARD}->{'sel_task'}=$CACHE{-PTR_Y};
+  $CACHE{-UPDATE}=1;
 
 # ---   *   ---   *   ---
 # give lycon some data about this module
@@ -84,8 +93,8 @@ my @DATA=();
   -ACCEPT,[\&on_accept,0,0],
   -MOV_A,[
 
-    sub {$CACHE{-PTR_Y}--;sel_change;},0,0,
-    sub {$CACHE{-PTR_Y}++;sel_change;},0,0,
+    sub {sel_change(-1);},0,0,
+    sub {sel_change(+1);},0,0,
 
   ],
 
@@ -322,10 +331,13 @@ sub add_ticks {
   my $inner=shift;
 
   my $add_tick=1;
-  my $i=0;
+  my ($i,$j)=(0,0);
 
   my $rm=$CHARS{-DONE};
   my $pad=' 'x(cash::L($rm->[0]));
+  my $rpad='#'x(cash::L($rm->[0]));
+
+  my ($sel_next,$sel_prev)=split ':',$CACHE{-SSEL};
 
 # ---   *   ---   *   ---
 # iter the fitted lines
@@ -333,7 +345,19 @@ sub add_ticks {
   for my $line(@{$inner->text_lines()}) {
 
     my $task=$CACHE{-CARD}->{'tasks'}->[$i];
-    my $selected=$i==$CACHE{-CARD}->{'sel_task'};
+    my $is_pad=$line=~ m/#:pad;>/;
+    my $selected=
+
+      $i==$CACHE{-CARD}->{'sel_task'}
+      && !($is_pad);
+
+    if(!$selected) {
+      $j++;
+
+    } else {
+      $sel_next=$j;
+
+    };
 
     my $color=($selected)
       ? '8'.(split '',$inner->color)[1]
@@ -341,13 +365,15 @@ sub add_ticks {
       ;
 
     # append tick+line
-    if($add_tick) {
+    if($add_tick && !$is_pad) {
 
       # remove previous tick
       my $r0=$rm->[0];
       my $r1=$rm->[1];
+
       $line=~ s/^\Q${r0}//;
       $line=~ s/^\Q${r1}//;
+      $line=~ s/^${rpad}//;
 
       $line=cash::uscpx($line);
 
@@ -362,19 +388,22 @@ sub add_ticks {
 
     # append line
     } else {
-      $line=~ s/${pad}//;
+
       $line=cash::uscpx($line);
+      $line=~ s/^${rpad}//;
+      $line=~ s/^${pad}//;
 
       $line=$pad.cash::C($color,$line,1);
 
     };
 
     # add tick after the tag
-    if($line=~ m/#:pad;>/) {
+    if($is_pad && !$add_tick) {
       $add_tick=1;$i++;
 
     };
-  };
+
+  };$CACHE{-SSEL}="$sel_prev:$sel_next";
 };
 
 # ---   *   ---   *   ---
@@ -388,19 +417,23 @@ sub update {
     my $prog=$DATA[2];
 
     add_ticks($inner);
-    $inner->fill(0,'non');
-    #$inner->wipe();
+
+    $inner->wipe();
+    $inner->fill(0,$CACHE{-SSEL});
+
     $inner->draw();
 
-    $prog->{-TEXT_LINES}=[$CACHE{-CARD}->{'header'}];
+    $prog->{-TEXT_LINES}
+      =[$CACHE{-CARD}->{'header'}];
+
+    $prog->wipe();
     $prog->fill();
-#    $prog->wipe();
     $prog->draw();
 
   })[$CACHE{-UPDATE}]->();
 
   $CACHE{-UPDATE}=0;
-  END:QUEUE->add(\&update,0);
+  QUEUE->add(\&update,0);
 
 };
 
@@ -425,7 +458,6 @@ sub ctl_take {
 # ---   *   ---   *   ---
 
   my $text='';
-
   for my $task(@{$CACHE{-CARD}->{'tasks'}}) {
 
     $text.=$task->{'todo'};
@@ -437,18 +469,71 @@ sub ctl_take {
 # nit the rect
 
   my $inner=$sec->inner(3,'07');
-  $inner->co->{-Y}-=1;
-  $inner->co->{-X}-=2;
+
+  my $rm=$CHARS{-DONE};
+  my $rpad='#'x();
 
   # apply/fit text to rect
-  $inner->text($text);
+  $inner->text(
 
-  # add ticks
-  add_ticks($inner);
+    $text,
+    cash::L($CHARS{-DONE}->[0])
+
+  );
 
 # ---   *   ---   *   ---
+# move items that don't fit into the page
+# over to the next one
 
-  $inner->fill(0,'non');
+  my $ref=$inner->text_lines;
+  if(@$ref>=$inner->sz->y) {
+
+    my $y=$inner->sz->y-1;
+
+    while($y<@$ref) {
+
+      my $end=$y;
+
+# ---   *   ---   *   ---
+# first get start of item
+
+      my @lines=();
+      while(!($ref->[$y]=~ m/#:pad;>/)) {
+        $y--;
+
+      };my $start=$y+1;
+
+# ---   *   ---   *   ---
+# save the lines' content and
+# replace with padding
+
+      while(!($ref->[$start]=~ m/#:pad;>/)) {
+
+        push @lines,$ref->[$start];
+        $ref->[$start++]="#:pad;>\n";
+
+      };
+
+# ---   *   ---   *   ---
+# rebuild the array from the slices
+
+      my @tail=@$ref[$start..@$ref-1];
+
+      @$ref=@$ref[0..$end];
+      push @$ref,@lines;
+      push @$ref,@tail;
+
+      $y=$end+$inner->sz->y;
+
+    };
+  };
+
+# ---   *   ---   *   ---
+# replace padding with checkbox
+
+  add_ticks($inner);
+
+  $inner->fill(0,$CACHE{-SSEL});
   $inner->draw();
 
 # ---   *   ---   *   ---

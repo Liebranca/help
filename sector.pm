@@ -141,12 +141,14 @@ sub text {
 
   if(defined $new) {
 
+    my $align=shift;
+    if(!defined $align) {$align=0;};
     $self->{-TEXT}=$new;
 
     my $rows=int(@{$self->rows()});
 
     $self->text_ptr(0);
-    $self->text_fit();
+    $self->text_fit($align);
 
   };
 
@@ -175,10 +177,13 @@ sub is_text {return defined ((shift)->text);};
 sub text_fit {
 
   my $self=shift;
+  my $align=shift;
+
+  my $pad='#'x$align;
 
   my @lines=();
 
-  my $space=$self->sz->x-$self->co->x;
+  my $space=($self->sz->x-$self->co->x)-$align;
   my @rows=@{$self->rows()};
 
   my ($rem,$sub)=(1,$self->text);
@@ -198,6 +203,11 @@ sub text_fit {
       $line_strip=~ s/^\s+$//;
 
       if(!length $line_strip) {next;};
+      if(!($rem=~ m/#:pad;>/)) {
+        $rem=$pad.$rem;
+
+      };
+
       push @lines,$rem;
 
     };
@@ -211,10 +221,18 @@ sub text_fit {
 
     for my $line(@left) {
 
+      $line=sprintf "%-".$space."s",$line;
+
       my $line_strip=$line;
       $line_strip=~ s/^\s+$//;
 
       if(!length $line_strip) {next;};
+
+      if(!($line=~ m/#:pad;>/)) {
+        $line=$pad.$line;
+
+      };
+
       push @lines,$line;
 
     };
@@ -402,20 +420,28 @@ sub fill {
 
       my ($prev,$next)=split ':',$selection;
 
-      # unscape prev
-      $all_lines[$prev]=cash::uscpx(
-        $all_lines[$prev]
-
-      # invert next
-      );$all_lines[$next]=
-        "\e[7m".$all_lines[$next]."\e[27m";
+#      # unscape prev
+#      $all_lines[$prev]=cash::uscpx(
+#        $all_lines[$prev]
+#
+#      # invert next
+#      );$all_lines[$next]=
+#        "\e[7m".$all_lines[$next]."\e[27m";
 
       # scroll when going over end/top of rect
       if($next>$prev) {
-        $scroll=int(($next%@rows)==0);
+        $scroll=int(
+           int($next/@rows)
+          >int($prev/@rows)
+
+        );$dir=0;
 
       } elsif($next<$prev) {
-        $scroll=int(($next%@rows)==(@rows-1));;
+        $scroll=int(
+           int($next/@rows)
+          <int($prev/@rows)
+
+        );$dir=1;
 
       };
 
