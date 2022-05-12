@@ -44,24 +44,48 @@ my %CACHE=(
 
   -PTR_X => 0,
   -PTR_Y => 0,
-
-  -SCR_X => 0,
-  -SCR_Y => 0,
+  -UPDATE=> 0,
 
 );
 
+# ugh. put this on cache later
+my @DATA=();
+
 # ---   *   ---   *   ---
 
-sub on_accept {
+;;sub on_exit {
+
+  save_card();
+  lycon::loop::set_quit(sub {return 1;});
+
+};sub on_accept {
   do_task($CACHE{-CARD}->{'sel_task'});
+  $CACHE{-UPDATE}=1;
+
+# ---   *   ---   *   ---
+
+};sub sel_change {
+
+  $CACHE{-CARD}->{'sel_task'}=(
+
+    $CACHE{-PTR_Y}%(@{
+      $CACHE{-CARD}->{'tasks'}
+
+    })
+
+  );$CACHE{-UPDATE}=1;
+
+# ---   *   ---   *   ---
+# give lycon some data about this module
 
 };lycon::ctl::REGISTER(
 
+  -EXIT,[0,0,\&on_exit],
   -ACCEPT,[\&on_accept,0,0],
   -MOV_A,[
 
-    sub {$CACHE{-PTR_Y}--;},0,0,
-    sub {$CACHE{-PTR_Y}++;},0,0,
+    sub {$CACHE{-PTR_Y}--;sel_change;},0,0,
+    sub {$CACHE{-PTR_Y}++;sel_change;},0,0,
 
   ],
 
@@ -91,6 +115,8 @@ my %CHARS=(
 
   ],
 
+# ---   *   ---   *   ---
+
   -HED => [
 
     '['.chr(0x01D6),
@@ -113,6 +139,8 @@ sub new_card {
   $CACHE{-CARD}={
 
     'id' => shift,
+    'filepath'=>shift,
+
     'tasks' => [],
     'sel_task' => 0,
     'progress' => 0.0,
@@ -121,13 +149,22 @@ sub new_card {
 
 };
 
+# ---   *   ---   *   ---
+# read task list from file
+
 sub load_card {
 
   my $path=abs_path(shift);
+
+  if(!-e $path) {
+    lycon::FATAL("$path: no such file\r\n");
+
+  };
+
   my @lines=split ";\n",`cat $path`;
 
   my $id=shift @lines;
-  new_card($id);
+  new_card($id,$path);
 
   for my $line(@lines) {
     $line=cash::trim($line);
@@ -140,6 +177,25 @@ sub load_card {
 
     };
   };
+
+
+# ---   *   ---   *   ---
+# write task list to file
+
+};sub save_card {
+
+  my $card=$CACHE{-CARD};
+  my $s=$card->{'id'}.";\n\n";
+
+  for my $task(@{$card->{'tasks'}}) {
+    $s.=('~','x')[$task->{'done'}].' ';
+    $s.=$task->{'todo'}.";\n";
+
+  };
+
+  open FH,'>',$card->{'filepath'} or die $!;
+  print FH $s;
+  close FH;
 
 };
 
@@ -175,11 +231,12 @@ sub do_task {
   my $idex=shift;
 
   $CACHE{-CARD}->{'tasks'}->[$idex]->{'done'}^=1;
-  calc_progress();
+  calc_progress($DATA[2]->sz->x-4);
 
 };
 
 # ---   *   ---   *   ---
+# makes the progress bar string
 
 sub calc_progress {
 
@@ -199,6 +256,9 @@ sub calc_progress {
 
   };
 
+# ---   *   ---   *   ---
+# calculate completion percentage
+
   my ($done,$total)=(0,0);
   for my $t(@{$CACHE{-CARD}->{'tasks'}}) {
     $total++;$done+=$t->{'done'};
@@ -206,15 +266,23 @@ sub calc_progress {
   };my $val=($done/$total);
   my $bar="\x{01E3}"x(int($val*16));
 
+
+# ---   *   ---   *   ---
+# get some color escapes
+
   my $col1=cash::C('_C','');
   my $col2=cash::C('_F','');
   my $col3=cash::C('_3','');
 
+  # shrink decimals as integer part increases
   my $fm=('%.3f','%.2f','%.1f')[
 
     ($val>=0.1)+($val>=1.0)
 
   ];
+
+# ---   *   ---   *   ---
+# make the progress bar string
 
   $CACHE{-CARD}->{'progress'}=sprintf(
 
@@ -222,6 +290,9 @@ sub calc_progress {
     " $col3$fm$col2%%",$bar,($val*100)
 
   );
+
+# ---   *   ---   *   ---
+# add some adornments
 
   $CACHE{-CARD}->{'header'}=(
 
@@ -244,191 +315,6 @@ sub calc_progress {
 };
 
 # ---   *   ---   *   ---
-
-sub draw {
-
-  my $s="";my $last_l=0;
-
-  $CACHE{-CARD}->{'sel_task'}=(
-
-    $CACHE{-PTR_Y}%(@{
-      $CACHE{-CARD}->{'tasks'}
-
-    })
-
-  );
-
-# ---   *   ---   *   ---
-
-  # get screen dimentions and card name
-  my ($sc_x,$sc_y)=(0,0);
-  my $title=$CACHE{-CARD}->{'id'};
-
-  my @ttysz=(0,0);lycon::ttysz(\@ttysz);
-  ($sc_x,$sc_y)=@ttysz;
-
-  # clear on window or font resize
-  if(
-
-     $sc_x!=$CACHE{-SCR_X}
-  || $sc_y!=$CACHE{-SCR_Y}
-
-  ) {$s.="\e[2J";};
-
-  # save current screen size
-  $CACHE{-SCR_X}=$sc_x;
-  $CACHE{-SCR_Y}=$sc_y;
-
-# ---   *   ---   *   ---
-
-  # draw header
-  {
-
-    # calc avail space
-    my $space=$sc_x-(
-
-      cash::L(
-        $CHARS{-HED}->[0].
-        $CHARS{-HED}->[1]
-
-      )+cash::L(
-        $CHARS{-HED}->[2].' '.
-        $CACHE{-CARD}->{'progress'}
-
-      )
-
-    );
-
-# ---   *   ---   *   ---
-
-    if(length($title)>=$space) {
-      my @ar=split '',$title;
-      $title=(join '',@ar[0..$space-5]).'...';
-
-    };
-
-# ---   *   ---   *   ---
-
-    my $header=(
-
-      cash::pex_col('_4').
-      $CHARS{-HED}->[0].
-      $CHARS{-HED}->[1].
-
-      cash::pex_col('_2').
-      $title.
-
-      $CHARS{-HED}->[2].
-      ' '.$CACHE{-CARD}->{'progress'}
-
-    );
-
-# ---   *   ---   *   ---
-
-    # calc escapes length
-    my $pad=length($header)-cash::L($header);
-
-    # format and colorize
-    $s.=cash::C('5_',
-
-      sprintf("\%-".($sc_x+$pad)."s",$header),1
-
-    )."\r\n\r\n";
-
-  };
-
-# ---   *   ---   *   ---
-
-  my $i=0;for my $ref(@{ $CACHE{-CARD}->{'tasks'} }) {
-    my %h=%{ $ref };
-
-    my $selected=$i==$CACHE{-CARD}->{'sel_task'};
-    $i++;
-
-    # fetch task data
-    my $done=@{ $CHARS{-DONE} }[$h{'done'}];
-
-    my $todo=$h{'todo'};
-
-    my $selch=' ';if($selected) {
-        $selch.=''.
-          cash::C('_F',"\x{0195} ",1).
-          cash::C('_C','')
-
-    };my $alt_selch="\e[2K ";if($selected) {
-        $alt_selch.=''.
-          cash::C('_F',"\x{0199} ",1).
-          cash::C('_C','')
-
-    };my $t="\e[2K".$done.$selch;
-
-    my $pad=cash::L($done);
-    my $space=$sc_x-$pad-8;
-
-# ---   *   ---   *   ---
-
-    # wrap task description
-    my $cnt=0;
-    my $sub=1;while($sub) {
-
-      ($sub,$todo)=cash::wrap_word(
-        $todo,$space
-
-      );if($sub) {
-
-        my $spad=length($sub)-cash::L($sub);
-        $sub=sprintf("\%-".$spad."s",$sub);
-
-        $t.=(
-
-          "$alt_selch$sub\r\n",
-          "$sub\r\n"
-
-        )[!$cnt].(' 'x$pad);
-
-        $cnt++;
-
-      };
-
-# ---   *   ---   *   ---
-
-    # this or previous is multi-line item
-    };if($cnt | $last_l) {
-
-      $pad=length($todo)-cash::L($todo);
-      $todo=sprintf(
-
-        "\e[2K$alt_selch\%-".
-        $space."s",
-
-        $todo
-
-      );$t="\r\n".$t.$todo;
-
-# ---   *   ---   *   ---
-
-    # this and previous is single-line item
-    } else {
-
-      $t=$t.$todo;
-
-      $pad=length($t)-cash::L($t);
-      $t=sprintf("\%-".$space."s",$t);
-
-    };
-
-# ---   *   ---   *   ---
-
-    # append and go next
-    $s.=cash::C('__',$t,1)."\r\n";
-    $last_l=$cnt!=0;
-
-  };lycon::loop::dwbuff($s);
-  QUEUE->add(\&draw,0);
-
-};
-
-# ---   *   ---   *   ---
 # adds checkmark fields to the fitted text
 
 sub add_ticks {
@@ -447,8 +333,7 @@ sub add_ticks {
   for my $line(@{$inner->text_lines()}) {
 
     my $task=$CACHE{-CARD}->{'tasks'}->[$i];
-    my $selected=0;
-      #$i==$CACHE{-CARD}->{'sel_task'};
+    my $selected=$i==$CACHE{-CARD}->{'sel_task'};
 
     my $color=($selected)
       ? '8'.(split '',$inner->color)[1]
@@ -493,10 +378,35 @@ sub add_ticks {
 };
 
 # ---   *   ---   *   ---
+# to be run on the lycon main loop
+
+sub update {
+
+  (\&lycon::nope,,sub {
+
+    my $inner=$DATA[1];
+    my $prog=$DATA[2];
+
+    add_ticks($inner);
+    $inner->fill(0,'non');
+    #$inner->wipe();
+    $inner->draw();
+
+    $prog->{-TEXT_LINES}=[$CACHE{-CARD}->{'header'}];
+    $prog->fill();
+#    $prog->wipe();
+    $prog->draw();
+
+  })[$CACHE{-UPDATE}]->();
+
+  $CACHE{-UPDATE}=0;
+  END:QUEUE->add(\&update,0);
+
+};
+
+# ---   *   ---   *   ---
 
 sub ctl_take {
-
-#  lycon::dpy::beg;
 
   my @ttysz=(0,0);lycon::ttysz(\@ttysz);
 
@@ -524,12 +434,11 @@ sub ctl_take {
   };
 
 # ---   *   ---   *   ---
-# init the rect
+# nit the rect
 
-  my $inner=$sec->inner(4,'07');
-  $inner->co->{-Y}-=2;
+  my $inner=$sec->inner(3,'07');
+  $inner->co->{-Y}-=1;
   $inner->co->{-X}-=2;
-  $inner->sz->{-X}-=4;
 
   # apply/fit text to rect
   $inner->text($text);
@@ -556,13 +465,16 @@ sub ctl_take {
 # ---   *   ---   *   ---
 
   calc_progress($prog->sz->x-4);
-
   $prog->{-TEXT_LINES}=[$CACHE{-CARD}->{'header'}];
   $prog->fill();
   $prog->draw();
 
-#  alt_draw();QUEUE->add(\&alt_draw,$inner);
-#  lycon::ctl::transfer();
+# ---   *   ---   *   ---
+
+  push @DATA,($sec,$inner,$prog);
+
+  QUEUE->add(\&update,0);
+  lycon::ctl::transfer();
 
 };
 

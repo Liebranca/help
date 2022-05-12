@@ -552,6 +552,7 @@ sub draw {
   my $s=$self->{-DRAW};
 
   for my $ref(@$s) {
+
     lycon::loop::dwbuff(
       "$ref->[0]$ref->[1]"
 
