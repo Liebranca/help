@@ -55,25 +55,7 @@ my @DATA=();
 
 # ---   *   ---   *   ---
 
-sub popspawn {
 
-  my @ttysz=(0,0);lycon::ttysz(\@ttysz);
-  my $rect=sector::nit(
-
-    vec4::nit(int($ttysz[0]/4),int($ttysz[1]/4)),
-    vec4::nit(int($ttysz[0]/2),int($ttysz[1]/2)),
-
-    'CE'
-
-  );
-
-  $rect->wipe();
-  $rect->box();
-  $rect->draw();
-
-  $rect->shadow();
-
-};
 
 # ---   *   ---   *   ---
 
@@ -482,8 +464,8 @@ sub ctl_take {
 
   my $sec=sector::nit(
 
-    vec4::nit(0,0),
-    vec4::nit(@ttysz),
+    vec4::nit([0,0]),
+    vec4::nit([@ttysz]),
 
     '07',
 
@@ -577,8 +559,8 @@ sub ctl_take {
 
   my $prog=sector::nit(
 
-    vec4::nit(4,0),
-    vec4::nit($ttysz[0]-4,1),
+    vec4::nit([4,0]),
+    vec4::nit([$ttysz[0]-4,1]),
 
     '07'
 

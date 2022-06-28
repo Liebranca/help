@@ -535,17 +535,17 @@ sub inner {
   if(!defined $edge) {$edge=1;};
   if(!defined $color) {$color=$self->color;};
 
-  my $sz=vec4::nit(
+  my $sz=vec4::nit([
     ($self->sz->x+1)-($edge),
     $self->sz->y-($edge*2)
 
-  );
+  ]);
 
-  my $co=vec4::nit(
+  my $co=vec4::nit([
     $self->co->x+1+($edge),
     $self->co->y+($edge)
 
-  );
+  ]);
 
   my $child=nit($co,$sz,$color);
   $child->setparent($self);

@@ -13,37 +13,39 @@
 
 # deps
 package vec4;
+
+  use v5.36.0;
   use strict;
   use warnings;
 
 # ---   *   ---   *   ---
+# info
+
+  our $VERSION=v0.1;
+  our $AUTHOR='IBN-3DILA';
+
+# ---   *   ---   *   ---
 # getters
 
-sub x {return (shift)->{-X};};
-sub y {return (shift)->{-Y};};
-sub z {return (shift)->{-Z};};
-sub w {return (shift)->{-W};};
+sub x($self) {return $self->{x}};
+sub y($self) {return $self->{y}};
+sub z($self) {return $self->{z}};
+sub w($self) {return $self->{w}};
 
 # ---   *   ---   *   ---
 # constructor
 
-sub nit {
+sub nit($ref) {
 
-  my ($x,$y,$z,$w)=@_;
-
-  for my $v($x,$y,$z,$w) {
-    if(!defined $v) {
-      $v=0;
-
-    };
-  };
+  my ($x,$y,$z,$w)=@{$ref};
+  for my $v($x,$y,$z,$w) {$v//=0};
 
   my $sec=bless {
 
-    -X=>$x,
-    -Y=>$y,
-    -Z=>$z,
-    -W=>$w,
+    x=>$x,
+    y=>$y,
+    z=>$z,
+    w=>$w,
 
   },'vec4';
 
